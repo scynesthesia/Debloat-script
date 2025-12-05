@@ -37,14 +37,14 @@ function Write-Section {
 function Show-Banner {
     Clear-Host
     $banner = @'
-   _____                 _   _           ____        _              _             
-  / ____|               | | (_)         |  _ \      | |            | |            
- | (___  _   _ _ __   __| |  _  ___ ___ | |_) | ___ | |_ ___   ___ | |_ ___  _ __ 
+   _____                 _   _           ____        _              _
+  / ____|               | | (_)         |  _ \      | |            | |
+ | (___  _   _ _ __   __| |  _  ___ ___ | |_) | ___ | |_ ___   ___ | |_ ___  _ __
   \___ \| | | | '_ \ / _` | | |/ __/ __||  _ < / _ \| __/ _ \ / _ \| __/ _ \| '__|
-  ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |   
- |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|   
-          __/ |                                                                    
-         |___/                                                                     
+  ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |
+ |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|
+          __/ |
+         |___/                                
 '@
     Write-Host $banner -ForegroundColor Magenta
     Write-Host " Optimización segura y clara" -ForegroundColor Green
@@ -67,6 +67,30 @@ function Set-PolicyValue {
         New-Item -Path $Path -Force | Out-Null
     }
     Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value -Force
+}
+
+function Ask-YesNo {
+    param(
+        [string]$Prompt,
+        [string]$Default = '0'
+    )
+
+    $answer = Read-Host "$Prompt (1 = Sí, 0 = No) [Predeterminado: $Default]"
+    if ([string]::IsNullOrWhiteSpace($answer)) {
+        $answer = $Default
+    }
+    return $answer -eq '1'
+}
+
+function Initialize-RestorePoint {
+    Write-Section "Punto de restauración"
+    Write-Host "Creando punto de restauración inicial (MODIFY_SETTINGS)..." -ForegroundColor Gray
+    try {
+        Checkpoint-Computer -Description "ScytheOptimizer-PreRun" -RestorePointType "MODIFY_SETTINGS"
+        Write-Host "Punto de restauración creado correctamente." -ForegroundColor Green
+    } catch {
+        Write-Warning "No se pudo crear el punto de restauración. Verifica que la Protección del sistema esté habilitada."
+    }
 }
 
 function Invoke-PrivacyTelemetrySafe {
@@ -172,6 +196,31 @@ function Invoke-AggressiveTweaks {
     Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
 }
 
+function Invoke-SOCOptionalPrompts {
+    Write-Section "Opciones adicionales para SOC"
+
+    $options = @(
+        @{ Key = '1'; Description = 'Desactivar Cortana en búsqueda'; Action = { Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -Value 0 } },
+        @{ Key = '2'; Description = 'Desactivar sugerencias de la Tienda en Inicio'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SilentInstalledAppsEnabled" -Value 0 } },
+        @{ Key = '3'; Description = 'Activar Storage Sense de forma mensual'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "01" -Value 1; Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "2048" -Value 30 } },
+        @{ Key = '4'; Description = 'Reducir frecuencia de Feedback a Nunca'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Siuf\Rules" -Name "NumberOfSIUFInPeriod" -Value 0; Set-PolicyValue -Path "HKCU:\Software\Microsoft\Siuf\Rules" -Name "PeriodInNanoSeconds" -Type QWord -Value 0 } },
+        @{ Key = '5'; Description = 'Habilitar vista compacta en el Explorador'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "UseCompactMode" -Value 1 } }
+    )
+
+    foreach ($opt in $options) {
+        $apply = Ask-YesNo "$($opt.Key)) $($opt.Description)"
+        if ($apply) {
+            & $opt.Action
+            Write-Host "✔ $($opt.Description) aplicado." -ForegroundColor Green
+        } else {
+            Write-Host "Omitido: $($opt.Description)." -ForegroundColor DarkGray
+        }
+    }
+}
+
+function Ensure-PowerPlan {
+    param(
+        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
 function Ensure-PowerPlan {
     param(
         [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
@@ -230,6 +279,8 @@ function Apply-SOCProfile {
     Invoke-PrivacyTelemetrySafe
     Invoke-DebloatSafe
     Invoke-PreferencesSafe
+    Invoke-SOCOptionalPrompts
+    Ensure-PowerPlan -Mode 'HighPerformance'
     Ensure-PowerPlan -Mode 'HighPerformance'
     Set-PowerPlan -Mode 'Balanced'
     Write-Host "Preset SOC / Main completado."
