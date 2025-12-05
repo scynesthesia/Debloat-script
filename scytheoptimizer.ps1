@@ -19,7 +19,28 @@ function Write-Section {
     Write-Host "========== $Text ==========" -ForegroundColor Cyan
 }
 
-function Ask-YesNo {
+function Show-Banner {
+    Clear-Host
+    $banner = @'
+   _____                 _   _           ____        _              _
+  / ____|               | | (_)         |  _ \      | |            | |
+ | (___  _   _ _ __   __| |  _  ___ ___ | |_) | ___ | |_ ___   ___ | |_ ___  _ __
+  \___ \| | | | '_ \ / _` | | |/ __/ __||  _ < / _ \| __/ _ \ / _ \| __/ _ \| '__|
+  ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |
+ |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|
+          __/ |
+         |___/                                
+'@
+    Write-Host $banner -ForegroundColor Magenta
+    Write-Host " Optimización segura y clara" -ForegroundColor Green
+    Write-Host " Preset 1: SOC / Main  |  Preset 2: PC Lenta / Agresivo" -ForegroundColor Gray
+    Write-Host " Power plan base: Alto rendimiento" -ForegroundColor Yellow
+    Write-Host "------------------------------------------------------------`n" -ForegroundColor DarkGray
+function Write-Section($Title) {
+    Write-Host "`n==== $Title ====``n" -ForegroundColor Cyan
+}
+
+function Set-PolicyValue {
     param(
         [string]$Question,
         [string]$Default = 'n'
@@ -30,12 +51,57 @@ function Ask-YesNo {
         $resp = Read-Host "$Question $defaultText"
         if ([string]::IsNullOrWhiteSpace($resp)) { $resp = $Default }
 
-        switch ($resp.ToLower()) {
-            { $_ -in 's', 'y' } { return $true }
-            { $_ -in 'n' } { return $false }
-            default { Write-Host "  [!] Opción inválida. Respondé con s/n." -ForegroundColor Yellow }
-        }
+function Ask-YesNo {
+    param(
+        [string]$Prompt,
+        [string]$Default = '0'
+    )
+
+    $answer = Read-Host "$Prompt (1 = Sí, 0 = No) [Predeterminado: $Default]"
+    if ([string]::IsNullOrWhiteSpace($answer)) {
+        $answer = $Default
     }
+    return $answer -eq '1'
+}
+
+function Initialize-RestorePoint {
+    Write-Section "Punto de restauración"
+    Write-Host "Creando punto de restauración inicial (MODIFY_SETTINGS)..." -ForegroundColor Gray
+    try {
+        Checkpoint-Computer -Description "ScytheOptimizer-PreRun" -RestorePointType "MODIFY_SETTINGS"
+        Write-Host "Punto de restauración creado correctamente." -ForegroundColor Green
+    } catch {
+        Write-Warning "No se pudo crear el punto de restauración. Verifica que la Protección del sistema esté habilitada."
+    }
+}
+
+function Invoke-PrivacyTelemetrySafe {
+    Write-Section "Privacidad y telemetría (seguro)"
+
+    # Desactiva experiencias sugeridas y recomendaciones
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SoftLandingEnabled" -Value 0
+
+    # Anuncios personalizados y diagnósticos básicos
+    # Desactiva experiencias sugeridas y feedback frecuente
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
+
+    # Desactiva anuncios personalizados y diagnósticos más ligeros
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 1
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableActivityFeed" -Value 0
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "PublishUserActivities" -Value 0
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "UploadUserActivities" -Value 0
+
+    # Limitar búsquedas en la nube desde Inicio sin desactivar seguridad
+    Set-PolicyValue -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1
+
+    # No desactiva SmartScreen ni Defender
+    Write-Host "Telemetría básica aplicada (sin tocar Defender/SmartScreen)."
 }
 
 function Read-MenuChoice {
@@ -187,70 +253,43 @@ function Clear-DeepTempAndThumbs {
     }
 }
 
-# ---------- BLOCK: DEBLOAT LIGHT (sin romper nada importante) ----------
-function Apply-DebloatSafe {
-    Write-Section "Debloat seguro (apps basura típicas, no toca Store ni cosas críticas)"
+function Invoke-SOCOptionalPrompts {
+    Write-Section "Opciones adicionales para SOC"
 
-    $apps = @(
-        "Microsoft.BingNews",
-        "Microsoft.BingWeather",
-        "Microsoft.GetHelp",
-        "Microsoft.Getstarted",
-        "Microsoft.Microsoft3DViewer",
-        "Microsoft.MicrosoftSolitaireCollection",
-        "Microsoft.MixedReality.Portal",
-        "Microsoft.Xbox.TCUI",
-        "Microsoft.XboxApp",
-        "Microsoft.XboxGameOverlay",
-        "Microsoft.XboxGamingOverlay",
-        "Microsoft.XboxIdentityProvider",
-        "Microsoft.XboxSpeechToTextOverlay"
+    $options = @(
+        @{ Key = '1'; Description = 'Desactivar Cortana en búsqueda'; Action = { Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -Value 0 } },
+        @{ Key = '2'; Description = 'Desactivar sugerencias de la Tienda en Inicio'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SilentInstalledAppsEnabled" -Value 0 } },
+        @{ Key = '3'; Description = 'Activar Storage Sense de forma mensual'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "01" -Value 1; Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy" -Name "2048" -Value 30 } },
+        @{ Key = '4'; Description = 'Reducir frecuencia de Feedback a Nunca'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Siuf\Rules" -Name "NumberOfSIUFInPeriod" -Value 0; Set-PolicyValue -Path "HKCU:\Software\Microsoft\Siuf\Rules" -Name "PeriodInNanoSeconds" -Type QWord -Value 0 } },
+        @{ Key = '5'; Description = 'Habilitar vista compacta en el Explorador'; Action = { Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "UseCompactMode" -Value 1 } }
     )
 
-    foreach ($a in $apps) {
-        $pkg = Get-AppxPackage -AllUsers -Name $a -ErrorAction SilentlyContinue
-        if ($pkg) {
-            Write-Host "  [+] Quitando $a"
-            try {
-                Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
-            } catch {
-                Write-Host "    [-] Error quitando $a : $_" -ForegroundColor Yellow
-            }
+    foreach ($opt in $options) {
+        $apply = Ask-YesNo "$($opt.Key)) $($opt.Description)"
+        if ($apply) {
+            & $opt.Action
+            Write-Host "✔ $($opt.Description) aplicado." -ForegroundColor Green
         } else {
-            Write-Host "  [ ] $a no está instalado."
+            Write-Host "Omitido: $($opt.Description)." -ForegroundColor DarkGray
         }
     }
 }
 
-# ---------- BLOCK: PREFERENCIAS / UX SEGURAS ----------
-function Apply-PreferencesSafe {
-    Write-Section "Ajustando preferencias de UX (Start, Explorer, etc.)"
+function Ensure-PowerPlan {
+    param(
+        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
+function Ensure-PowerPlan {
+    param(
+        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
+    # Desactivar servicios de experiencias conectadas
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
 
-    # Mostrar archivos ocultos
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
-    # Mostrar extensiones
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
+    # Ajustar planificador de energía para mejores tiempos de respuesta
+    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMIN 100 | Out-Null
+    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100 | Out-Null
+    powercfg /setactive SCHEME_MIN | Out-Null
 
-    # Desactivar Mouse Acceleration
-    Set-RegistryValueSafe "HKCU\Control Panel\Mouse" "MouseSpeed" 0
-    Set-RegistryValueSafe "HKCU\Control Panel\Mouse" "MouseThreshold1" 0
-    Set-RegistryValueSafe "HKCU\Control Panel\Mouse" "MouseThreshold2" 0
-
-    # Desactivar Sticky Keys
-    Set-RegistryValueSafe "HKCU\Control Panel\Accessibility\StickyKeys" "Flags" 506
-
-    # Clásico menú contextual (Windows 11)
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" "" "" ([Microsoft.Win32.RegistryValueKind]::String)
-
-    # Mostrar iconos útiles en Explorer
-    # (Quita "Home" de la barra lateral)
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "LaunchTo" 1
-
-    # Detailed BSOD
-    Set-RegistryValueSafe "HKLM\SYSTEM\CurrentControlSet\Control\CrashControl" "DisplayParameters" 1
-
-    # NumLock on
-    Set-RegistryValueSafe "HKCU\Control Panel\Keyboard" "InitialKeyboardIndicators" 2147483650
+    Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
 }
 
 function Handle-SysMainPrompt {
@@ -342,17 +381,17 @@ function Apply-AggressiveTweaks {
         }
     }
 
-    # OneDrive auto-start
-    if (Ask-YesNo "¿Bloquear inicio automático de OneDrive?" 's') {
-        try {
-            taskkill /F /IM OneDrive.exe -ErrorAction SilentlyContinue
-            Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
-            Disable-ScheduledTask -TaskPath "\\Microsoft\\OneDrive\\" -TaskName "OneDrive Standalone Update Task-S-1-5-21" -ErrorAction SilentlyContinue | Out-Null
-            Write-Host "  [+] OneDrive no se iniciará automáticamente"
-        } catch {
-            Write-Host "    [-] No se pudo bloquear el auto-start de OneDrive: $_" -ForegroundColor Yellow
-        }
-    }
+function Apply-SOCProfile {
+    Write-Section "Aplicando preset SOC / Main"
+    Invoke-PrivacyTelemetrySafe
+    Invoke-DebloatSafe
+    Invoke-PreferencesSafe
+    Invoke-SOCOptionalPrompts
+    Ensure-PowerPlan -Mode 'HighPerformance'
+    Ensure-PowerPlan -Mode 'HighPerformance'
+    Set-PowerPlan -Mode 'Balanced'
+    Write-Host "Preset SOC / Main completado."
+}
 
     # Tareas de Consumer Experience / CEIP
     if (Ask-YesNo "¿Desactivar tareas de Consumer Experience (contenido sugerido)?" 's') {
