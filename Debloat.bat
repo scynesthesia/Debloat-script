@@ -19,6 +19,38 @@ function Write-Section {
     Write-Host "========== $Text ==========" -ForegroundColor Cyan
 }
 
+function Ask-YesNo {
+    param(
+        [string]$Question,
+        [string]$Default = 'n'
+    )
+
+    $defaultText = if ($Default -match '^[sSyY]$') { '[S/n]' } else { '[s/N]' }
+    while ($true) {
+        $resp = Read-Host "$Question $defaultText"
+        if ([string]::IsNullOrWhiteSpace($resp)) { $resp = $Default }
+
+        switch ($resp.ToLower()) {
+            { $_ -in 's', 'y' } { return $true }
+            { $_ -in 'n' } { return $false }
+            default { Write-Host "  [!] Opción inválida. Respondé con s/n." -ForegroundColor Yellow }
+        }
+    }
+}
+
+function Read-MenuChoice {
+    param(
+        [string]$Prompt,
+        [string[]]$ValidOptions
+    )
+
+    while ($true) {
+        $choice = Read-Host $Prompt
+        if ($ValidOptions -contains $choice) { return $choice }
+        Write-Host "[!] Opción inválida" -ForegroundColor Yellow
+    }
+}
+
 function Set-RegistryValueSafe {
     param(
         [string]$Path,
@@ -104,19 +136,55 @@ function Apply-PrivacyTelemetrySafe {
     Set-RegistryValueSafe "HKCU\System\GameConfigStore" "GameDVR_Enabled" 0
     Set-RegistryValueSafe "HKCU\System\GameConfigStore" "GameDVR_FSEBehaviorMode" 2
 
-    # Bing en Start OFF
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "BingSearchEnabled" 0
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "CortanaConsent" 0
+    # Bing en Start / Cortana (pregunta ligera)
+    if (Ask-YesNo "¿Desactivar Cortana y búsquedas online en Start?" 's') {
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "BingSearchEnabled" 0
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "CortanaConsent" 0
+        Write-Host "  [+] Cortana y Bing en Start desactivados"
+    } else {
+        Write-Host "  [ ] Cortana/Bing se mantienen como están."
+    }
+
+    # Storage Sense
+    if (Ask-YesNo "¿Activar Storage Sense para limpieza automática básica?" 'n') {
+        $storageSense = "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\StorageSense"
+        Set-RegistryValueSafe $storageSense "AllowStorageSenseGlobal" 1
+        Set-RegistryValueSafe "$storageSense\Parameters\StoragePolicy" "01" 1
+        Set-RegistryValueSafe "$storageSense\Parameters\StoragePolicy" "04" 1
+        Write-Host "  [+] Storage Sense habilitado"
+    } else {
+        Write-Host "  [ ] Storage Sense sin cambios."
+    }
 
     # Recomendaciones de apps y contenido en Start / Settings
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SystemPaneSuggestionsEnabled" 0
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338387Enabled" 0
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338388Enabled" 0
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338389Enabled" 0
-    Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-353694Enabled" 0
+    if (Ask-YesNo "¿Ocultar recomendaciones y contenido sugerido?" 's') {
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SystemPaneSuggestionsEnabled" 0
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338387Enabled" 0
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338388Enabled" 0
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338389Enabled" 0
+        Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-353694Enabled" 0
+        Write-Host "  [+] Recomendaciones desactivadas"
+    } else {
+        Write-Host "  [ ] Recomendaciones se mantienen."
+    }
 
     # Desactivar telemetría de PowerShell 7 (si existe)
     Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\PowerShellCore\Telemetry" "EnableTelemetry" 0
+}
+
+function Clear-DeepTempAndThumbs {
+    Write-Section "Limpieza extra (temp + miniaturas)"
+    Clear-TempFiles
+
+    $thumbDir = "$env:LOCALAPPDATA\Microsoft\Windows\Explorer"
+    if (Test-Path $thumbDir) {
+        Write-Host "  [+] Borrando caché de miniaturas"
+        try {
+            Get-ChildItem $thumbDir -Filter "thumbcache_*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Host "    [-] No se pudo limpiar miniaturas: $_" -ForegroundColor Yellow
+        }
+    }
 }
 
 # ---------- BLOCK: DEBLOAT LIGHT (sin romper nada importante) ----------
@@ -185,6 +253,30 @@ function Apply-PreferencesSafe {
     Set-RegistryValueSafe "HKCU\Control Panel\Keyboard" "InitialKeyboardIndicators" 2147483650
 }
 
+function Handle-SysMainPrompt {
+    Write-Section "SysMain (Superfetch)"
+    Write-Host "SysMain acelera lanzamientos y prefetch, pero puede usar disco/CPU en equipos lentos." -ForegroundColor Gray
+    if (Ask-YesNo "¿Querés desactivar SysMain para priorizar recursos?" 'n') {
+        try {
+            Stop-Service -Name "SysMain" -ErrorAction SilentlyContinue
+            Set-Service -Name "SysMain" -StartupType Disabled
+            Write-Host "  [+] SysMain desactivado"
+        } catch {
+            Write-Host "  [-] No se pudo ajustar SysMain: $_" -ForegroundColor Yellow
+        }
+    } elseif (Ask-YesNo "¿Asegurar SysMain activo y en Automático?" 's') {
+        try {
+            Set-Service -Name "SysMain" -StartupType Automatic
+            Start-Service -Name "SysMain" -ErrorAction SilentlyContinue
+            Write-Host "  [+] SysMain habilitado"
+        } catch {
+            Write-Host "  [-] No se pudo habilitar SysMain: $_" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  [ ] SysMain sin cambios."
+    }
+}
+
 # ---------- BLOCK: PERFORMANCE PLAN ----------
 function Enable-UltimatePerformancePlan {
     Write-Section "Activando Ultimate Performance power plan"
@@ -239,10 +331,53 @@ function Apply-AggressiveTweaks {
         }
     }
 
+    # Servicio Print Spooler
+    if (Ask-YesNo "¿Desactivar Print Spooler si no usás impresoras?" 'n') {
+        try {
+            Stop-Service -Name "Spooler" -ErrorAction SilentlyContinue
+            Set-Service -Name "Spooler" -StartupType Disabled
+            Write-Host "  [+] Print Spooler desactivado"
+        } catch {
+            Write-Host "    [-] No se pudo desactivar Spooler: $_" -ForegroundColor Yellow
+        }
+    }
+
+    # OneDrive auto-start
+    if (Ask-YesNo "¿Bloquear inicio automático de OneDrive?" 's') {
+        try {
+            taskkill /F /IM OneDrive.exe -ErrorAction SilentlyContinue
+            Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
+            Disable-ScheduledTask -TaskPath "\\Microsoft\\OneDrive\\" -TaskName "OneDrive Standalone Update Task-S-1-5-21" -ErrorAction SilentlyContinue | Out-Null
+            Write-Host "  [+] OneDrive no se iniciará automáticamente"
+        } catch {
+            Write-Host "    [-] No se pudo bloquear el auto-start de OneDrive: $_" -ForegroundColor Yellow
+        }
+    }
+
+    # Tareas de Consumer Experience / CEIP
+    if (Ask-YesNo "¿Desactivar tareas de Consumer Experience (contenido sugerido)?" 's') {
+        $tasks = @(
+            "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator",
+            "\\Microsoft\\Windows\\Customer Experience Improvement Program\\KernelCeipTask",
+            "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip",
+            "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser"
+        )
+        foreach ($t in $tasks) {
+            try {
+                schtasks /Change /TN $t /Disable | Out-Null
+                Write-Host "  [+] Tarea $t desactivada"
+            } catch {
+                Write-Host "    [-] No se pudo desactivar $t : $_" -ForegroundColor Yellow
+            }
+        }
+    }
+
+    # Limpieza adicional
+    Clear-DeepTempAndThumbs
+
     # Opcional: quitar OneDrive
     Write-Host ""
-    $ans = Read-Host "¿Quitar OneDrive de este sistema? (s/n)"
-    if ($ans -eq 's' -or $ans -eq 'S') {
+    if (Ask-YesNo "¿Quitar OneDrive de este sistema?" 'n') {
         Write-Host "  [+] Intentando desinstalar OneDrive"
         try {
             taskkill /F /IM OneDrive.exe -ErrorAction SilentlyContinue
@@ -270,6 +405,7 @@ function Run-SOCPreset {
     Apply-PrivacyTelemetrySafe
     Apply-DebloatSafe
     Apply-PreferencesSafe
+    Handle-SysMainPrompt
     Enable-UltimatePerformancePlan
     Write-Host ""
     Write-Host "[+] Preset SOC / Main aplicado. Reiniciá el sistema cuando puedas." -ForegroundColor Green
@@ -298,13 +434,12 @@ do {
     Write-Host "2) Aplicar Preset PC Lenta / Agresivo"
     Write-Host "0) Salir"
     Write-Host ""
-    $choice = Read-Host "Elegí una opción"
+    $choice = Read-MenuChoice "Elegí una opción" @('1','2','0')
 
     switch ($choice) {
         '1' { Run-SOCPreset }
         '2' { Run-PCSlowPreset }
         '0' { break }
-        default { Write-Host "[!] Opción inválida" -ForegroundColor Yellow }
     }
 
     if ($choice -ne '0') {
