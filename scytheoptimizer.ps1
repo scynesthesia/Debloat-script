@@ -9,6 +9,17 @@
       - Código modular y comentado para futura expansión.
 #>
 
+    ScytheOptimizer - Base script
+    Presets:
+      1. SOC / Main (safe)
+      2. PC Lenta / Agresivo (adds extra non-destructive tweaks)
+    Notes:
+      - Avoids disabling Defender, SmartScreen, mitigations or critical security features.
+      - Does not remove Edge, Microsoft Store or WebView2.
+      - Organized functions for later modularization.
+#>
+
+# Requires elevation for most changes
 function Ensure-Administrator {
     if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         Write-Warning "Este script debe ejecutarse como Administrador."
@@ -33,13 +44,15 @@ function Show-Banner {
   ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |
  |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|
           __/ |
-         |___/
+         |___/                                
 '@
     Write-Host $banner -ForegroundColor Magenta
     Write-Host " Optimización segura y clara" -ForegroundColor Green
     Write-Host " Preset 1: SOC / Main  |  Preset 2: PC Lenta / Agresivo" -ForegroundColor Gray
     Write-Host " Power plan base: Alto rendimiento" -ForegroundColor Yellow
     Write-Host "------------------------------------------------------------`n" -ForegroundColor DarkGray
+function Write-Section($Title) {
+    Write-Host "`n==== $Title ====``n" -ForegroundColor Cyan
 }
 
 function Set-PolicyValue {
@@ -90,6 +103,12 @@ function Invoke-PrivacyTelemetrySafe {
     Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SoftLandingEnabled" -Value 0
 
     # Anuncios personalizados y diagnósticos básicos
+    # Desactiva experiencias sugeridas y feedback frecuente
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
+
+    # Desactiva anuncios personalizados y diagnósticos más ligeros
     Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0
     Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 1
     Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableActivityFeed" -Value 0
@@ -99,6 +118,7 @@ function Invoke-PrivacyTelemetrySafe {
     # Limitar búsquedas en la nube desde Inicio sin desactivar seguridad
     Set-PolicyValue -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1
 
+    # No desactiva SmartScreen ni Defender
     Write-Host "Telemetría básica aplicada (sin tocar Defender/SmartScreen)."
 }
 
@@ -147,6 +167,15 @@ function Invoke-PreferencesSafe {
     Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0
     Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Value 0
     Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" -Name "ScoobeSystemSettingEnabled" -Value 0
+    # Mostrar extensiones y archivos ocultos
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -Value 1
+
+    # Desactivar notificaciones molestas
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0
+
+    # Ajustes visuales: mejor rendimiento manteniendo efectos básicos
+    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2
 
     Write-Host "Preferencias aplicadas sin cambios críticos."
 }
@@ -192,6 +221,23 @@ function Invoke-SOCOptionalPrompts {
 function Ensure-PowerPlan {
     param(
         [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
+function Ensure-PowerPlan {
+    param(
+        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
+    # Desactivar servicios de experiencias conectadas
+    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
+
+    # Ajustar planificador de energía para mejores tiempos de respuesta
+    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMIN 100 | Out-Null
+    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100 | Out-Null
+    powercfg /setactive SCHEME_MIN | Out-Null
+
+    Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
+}
+
+function Set-PowerPlan {
+    param(
+        [ValidateSet('Balanced','HighPerformance')][string]$Mode = 'Balanced'
     )
 
     Write-Section "Plan de energía"
@@ -219,6 +265,13 @@ function Ensure-PowerPlan {
     } else {
         Write-Warning "No se pudo establecer el plan de energía: GUID no encontrado."
     }
+    $guid = switch ($Mode) {
+        'HighPerformance' { '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' }
+        Default { '381b4222-f694-41f0-9685-ff5bb260df2e' }
+    }
+
+    powercfg /setactive $guid | Out-Null
+    Write-Host "Plan de energía establecido en $Mode."
 }
 
 function Apply-SOCProfile {
@@ -228,6 +281,8 @@ function Apply-SOCProfile {
     Invoke-PreferencesSafe
     Invoke-SOCOptionalPrompts
     Ensure-PowerPlan -Mode 'HighPerformance'
+    Ensure-PowerPlan -Mode 'HighPerformance'
+    Set-PowerPlan -Mode 'Balanced'
     Write-Host "Preset SOC / Main completado."
 }
 
@@ -238,6 +293,7 @@ function Apply-AggressiveProfile {
     Invoke-PreferencesSafe
     Invoke-AggressiveTweaks
     Ensure-PowerPlan -Mode 'Ultimate'
+    Set-PowerPlan -Mode 'HighPerformance'
     Write-Host "Preset PC Lenta / Agresivo completado."
 }
 
@@ -246,11 +302,15 @@ function Show-Menu {
     Write-Host "[1] Preset SOC / Main (seguro)" -ForegroundColor White
     Write-Host "[2] Preset PC Lenta / Agresivo" -ForegroundColor White
     Write-Host "[0] Salir" -ForegroundColor White
+    Clear-Host
+    Write-Host "ScytheOptimizer - versión base" -ForegroundColor Green
+    Write-Host "1. Preset SOC / Main (seguro)"
+    Write-Host "2. Preset PC Lenta / Agresivo"
+    Write-Host "0. Salir"
     Write-Host
 }
 
 Ensure-Administrator
-Initialize-RestorePoint
 Ensure-PowerPlan -Mode 'HighPerformance'  # Base siempre en alto rendimiento
 
 $exit = $false
@@ -266,3 +326,4 @@ while (-not $exit) {
 }
 
 Write-Host "Gracias por usar ScytheOptimizer." -ForegroundColor Green
+Write-Host "Gracias por usar ScytheOptimizer."
