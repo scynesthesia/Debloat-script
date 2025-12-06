@@ -254,9 +254,9 @@ function Apply-SOCProfile {
         [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
 function Ensure-PowerPlan {
     param(
-        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
-    # Desactivar servicios de experiencias conectadas
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
+        $HardwareProfile,
+        [ref]$StatusRef
+    )
 
     Write-Section "Preset 1: SOC / Main (seguro)"
     Create-RestorePointSafe
