@@ -75,34 +75,8 @@ function Initialize-RestorePoint {
     }
 }
 
-function Invoke-PrivacyTelemetrySafe {
-    Write-Section "Privacidad y telemetría (seguro)"
-
-    # Desactiva experiencias sugeridas y recomendaciones
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SoftLandingEnabled" -Value 0
-
-    # Anuncios personalizados y diagnósticos básicos
-    # Desactiva experiencias sugeridas y feedback frecuente
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
-
-    # Desactiva anuncios personalizados y diagnósticos más ligeros
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 1
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableActivityFeed" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "PublishUserActivities" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "UploadUserActivities" -Value 0
-
-    # Limitar búsquedas en la nube desde Inicio sin desactivar seguridad
-    Set-PolicyValue -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1
-
-    # No desactiva SmartScreen ni Defender
-    Write-Host "Telemetría básica aplicada (sin tocar Defender/SmartScreen)."
-}
+# ---------- STATUS TRACKING ----------
+$status = @{ PackagesFailed = @(); RebootRequired = $false }
 
 function Read-MenuChoice {
     param(
@@ -284,10 +258,17 @@ function Ensure-PowerPlan {
     # Desactivar servicios de experiencias conectadas
     Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
 
-    # Ajustar planificador de energía para mejores tiempos de respuesta
-    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMIN 100 | Out-Null
-    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100 | Out-Null
-    powercfg /setactive SCHEME_MIN | Out-Null
+    Write-Section "Preset 1: SOC / Main (seguro)"
+    Create-RestorePointSafe
+    Clear-TempFiles
+    Apply-PrivacyTelemetrySafe
+    Apply-PrivacyHardeningExtra
+    $debloat = Apply-DebloatSafe
+    $StatusRef.Value.PackagesFailed += $debloat.Failed
+    Apply-PreferencesSafe
+    Handle-SysMainPrompt -HardwareProfile $HardwareProfile
+    Apply-PerformanceBaseline -HardwareProfile $HardwareProfile
+    Ensure-PowerPlan -Mode 'HighPerformance'
 
     Write-Section "Preset 1: SOC / Main (seguro)"
     Create-RestorePointSafe
