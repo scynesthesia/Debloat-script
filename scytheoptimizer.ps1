@@ -289,7 +289,21 @@ function Ensure-PowerPlan {
     powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100 | Out-Null
     powercfg /setactive SCHEME_MIN | Out-Null
 
-    Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
+    Write-Section "Preset 1: SOC / Main (seguro)"
+    Create-RestorePointSafe
+    Clear-TempFiles
+    Apply-PrivacyTelemetrySafe
+    Apply-PrivacyHardeningExtra
+    $debloat = Apply-DebloatSafe
+    $StatusRef.Value.PackagesFailed += $debloat.Failed
+    Apply-PreferencesSafe
+    Handle-SysMainPrompt -HardwareProfile $HardwareProfile
+    Apply-PerformanceBaseline -HardwareProfile $HardwareProfile
+
+    $StatusRef.Value.RebootRequired = $true
+    Write-Host ""
+    Write-Host "[+] Preset SOC / Main aplicado. Reiniciá el sistema cuando puedas." -ForegroundColor Green
+    Write-OutcomeSummary -Status $StatusRef.Value
 }
 
 function Handle-SysMainPrompt {
