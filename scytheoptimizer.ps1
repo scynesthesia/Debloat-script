@@ -1,278 +1,149 @@
-<#
-    ScytheOptimizer - versión base mejorada
-    Presets:
-      1. SOC / Main (seguro)
-      2. PC Lenta / Agresivo (añade extras no destructivos)
-    Notas:
-      - No desactiva Defender, SmartScreen, mitigaciones ni borra Edge/Store/WebView2.
-      - Plan de energía predeterminado: Alto rendimiento en todos los presets.
-      - Código modular y comentado para futura expansión.
-#>
+# Nahue Windows Optimizer v0.1
+# Presets:
+#   1) SOC / Main (seguro)
+#   2) PC lenta / agresivo (incluye el 1 + tweaks extra)
+# Ejecutar SIEMPRE como Administrador.
 
-    ScytheOptimizer - Base script
-    Presets:
-      1. SOC / Main (safe)
-      2. PC Lenta / Agresivo (adds extra non-destructive tweaks)
-    Notes:
-      - Avoids disabling Defender, SmartScreen, mitigations or critical security features.
-      - Does not remove Edge, Microsoft Store or WebView2.
-      - Organized functions for later modularization.
-#>
+$ScriptPath = $PSScriptRoot
+Import-Module "$ScriptPath\modules\ui.psm1" -Force
+Import-Module "$ScriptPath\modules\privacy.psm1" -Force
+Import-Module "$ScriptPath\modules\debloat.psm1" -Force
+Import-Module "$ScriptPath\modules\performance.psm1" -Force
+Import-Module "$ScriptPath\modules\aggressive.psm1" -Force
+# Las operaciones de política/registro se manejan vía Set-RegistryValueSafe desde los módulos; no se define Set-PolicyValue aquí.
 
-# Requires elevation for most changes
-function Ensure-Administrator {
-    if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        Write-Warning "Este script debe ejecutarse como Administrador."
-        exit 1
-    }
+# ---------- COMPROBACIÓN ADMIN ----------
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+    ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "[!] Ejecutá este script como administrador." -ForegroundColor Red
+    Read-Host "Presioná Enter para salir"
+    exit 1
+}
+# ---------- CONTEXTO DE HARDWARE ----------
+$hardwareProfile = Get-HardwareProfile
+$oemServices = Get-OEMServiceInfo
+
+Write-Section "Perfil detectado"
+Write-Host "Equipo: " -NoNewline
+if ($hardwareProfile.IsLaptop) {
+    Write-Host "Laptop" -ForegroundColor Yellow
+} else {
+    Write-Host "Desktop" -ForegroundColor Green
+}
+Write-Host "RAM: $($hardwareProfile.TotalMemoryGB) GB ($($hardwareProfile.MemoryCategory))" -ForegroundColor Gray
+Write-Host "Almacenamiento: " -NoNewline
+if ($hardwareProfile.HasSSD -and $hardwareProfile.HasHDD) {
+    Write-Host "SSD + HDD mixto" -ForegroundColor Gray
+} elseif ($hardwareProfile.HasSSD) {
+    Write-Host "SSD" -ForegroundColor Green
+} else {
+    Write-Host "HDD" -ForegroundColor Yellow
+}
+if ($oemServices -and $oemServices.Count -gt 0) {
+    Write-Host "Servicios OEM detectados: $($oemServices.DisplayName -join ', ')" -ForegroundColor Yellow
 }
 
-function Write-Section {
-    param([string]$Title)
-    Write-Host "`n====================" -ForegroundColor Cyan
-    Write-Host " $Title" -ForegroundColor Cyan
-    Write-Host "====================`n" -ForegroundColor Cyan
-}
-
-function Show-Banner {
-    Clear-Host
-    $banner = @'
-   _____                 _   _           ____        _              _             
-  / ____|               | | (_)         |  _ \      | |            | |            
- | (___  _   _ _ __   __| |  _  ___ ___ | |_) | ___ | |_ ___   ___ | |_ ___  _ __ 
-  \___ \| | | | '_ \ / _` | | |/ __/ __||  _ < / _ \| __/ _ \ / _ \| __/ _ \| '__|
-  ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |   
- |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|   
-          __/ |                                                                    
-         |___/                                                                     
-'@
-    Write-Host $banner -ForegroundColor Magenta
-    Write-Host " Optimización segura y clara" -ForegroundColor Green
-    Write-Host " Preset 1: SOC / Main  |  Preset 2: PC Lenta / Agresivo" -ForegroundColor Gray
-    Write-Host " Power plan base: Alto rendimiento" -ForegroundColor Yellow
-    Write-Host "------------------------------------------------------------`n" -ForegroundColor DarkGray
-function Write-Section($Title) {
-    Write-Host "`n==== $Title ====``n" -ForegroundColor Cyan
-}
-
-function Set-PolicyValue {
-    param(
-        [Parameter(Mandatory)] [string]$Path,
-        [Parameter(Mandatory)] [string]$Name,
-        [Parameter(Mandatory)] [object]$Value,
-        [ValidateSet('DWord','QWord','String','ExpandString','Binary')] [string]$Type = 'DWord'
-    )
-
-    if (-not (Test-Path $Path)) {
-        New-Item -Path $Path -Force | Out-Null
-    }
-    Set-ItemProperty -Path $Path -Name $Name -Type $Type -Value $Value -Force
-}
-
-function Invoke-PrivacyTelemetrySafe {
-    Write-Section "Privacidad y telemetría (seguro)"
-
-    # Desactiva experiencias sugeridas y recomendaciones
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SoftLandingEnabled" -Value 0
-
-    # Anuncios personalizados y diagnósticos básicos
-    # Desactiva experiencias sugeridas y feedback frecuente
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338388Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-310093Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0
-
-    # Desactiva anuncios personalizados y diagnósticos más ligeros
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 1
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableActivityFeed" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "PublishUserActivities" -Value 0
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "UploadUserActivities" -Value 0
-
-    # Limitar búsquedas en la nube desde Inicio sin desactivar seguridad
-    Set-PolicyValue -Path "HKCU:\Software\Policies\Microsoft\Windows\Explorer" -Name "DisableSearchBoxSuggestions" -Value 1
-
-    # No desactiva SmartScreen ni Defender
-    Write-Host "Telemetría básica aplicada (sin tocar Defender/SmartScreen)."
-}
-
-function Invoke-DebloatSafe {
-    Write-Section "Debloat seguro"
-
-    $safeApps = @(
-        "Microsoft.3DBuilder",
-        "Microsoft.BingNews",
-        "Microsoft.GetHelp",
-        "Microsoft.Getstarted",
-        "Microsoft.Microsoft3DViewer",
-        "Microsoft.MicrosoftOfficeHub",
-        "Microsoft.MicrosoftSolitaireCollection",
-        "Microsoft.MicrosoftStickyNotes",
-        "Microsoft.MixedReality.Portal",
-        "Microsoft.People",
-        "Microsoft.Print3D",
-        "Microsoft.SkypeApp",
-        "Microsoft.WindowsFeedbackHub",
-        "Microsoft.ZuneMusic",
-        "Microsoft.ZuneVideo"
-    )
-
-    foreach ($app in $safeApps) {
-        Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-        Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq $app } | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-    }
-
-    Write-Host "Aplicaciones consideradas seguras para remover han sido desinstaladas."
-}
-
-function Invoke-PreferencesSafe {
-    Write-Section "Preferencias (seguro)"
-
-    # Tema oscuro y atenuación de efectos visuales
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppsUseLightTheme" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2
-
-    # Explorador: extensiones y archivos ocultos
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -Value 1
-
-    # Notificaciones y contenido recomendado
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_IrisRecommendations" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" -Name "ScoobeSystemSettingEnabled" -Value 0
-    # Mostrar extensiones y archivos ocultos
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "HideFileExt" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Hidden" -Value 1
-
-    # Desactivar notificaciones molestas
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0
-
-    # Ajustes visuales: mejor rendimiento manteniendo efectos básicos
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2
-
-    Write-Host "Preferencias aplicadas sin cambios críticos."
-}
-
-function Invoke-AggressiveTweaks {
-    Write-Section "Tweaks adicionales (PC lenta / agresivo)"
-
-    # Limitar aplicaciones en segundo plano (sin tocar apps críticas)
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Name "GlobalUserDisabled" -Value 1
-
-    # Desactivar GameDVR y grabación en segundo plano
-    Set-PolicyValue -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_Enabled" -Value 0
-    Set-PolicyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Value 0
-
-    # Reducir servicios de experiencias conectadas
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
-
-    Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
-}
+# ---------- STATUS TRACKING ----------
+$status = @{ PackagesFailed = @(); RebootRequired = $false }
 
 function Ensure-PowerPlan {
     param(
-        [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
-    # Desactivar servicios de experiencias conectadas
-    Set-PolicyValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp" -Value 0
-
-    # Ajustar planificador de energía para mejores tiempos de respuesta
-    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMIN 100 | Out-Null
-    powercfg /setacvalueindex SCHEME_MIN SUB_PROCESSOR PROCTHROTTLEMAX 100 | Out-Null
-    powercfg /setactive SCHEME_MIN | Out-Null
-
-    Write-Host "Tweaks agresivos aplicados (sin desactivar características de seguridad)."
-}
-
-function Set-PowerPlan {
-    param(
-        [ValidateSet('Balanced','HighPerformance')][string]$Mode = 'Balanced'
+        [ValidateSet('Balanced','HighPerformance')][string]$Mode = 'HighPerformance'
     )
-
-    Write-Section "Plan de energía"
-
-    switch ($Mode) {
-        'Ultimate' {
-            # Crea el plan Ultimate Performance si no existe
-            $ultimate = (powercfg -L) -match 'Ultimate Performance'
-            if (-not $ultimate) {
-                powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 | Out-Null
-            }
-            $guid = (powercfg -L) | Where-Object { $_ -match 'Ultimate Performance' } | ForEach-Object { ($_ -split '\s+')[3] }
-        }
-        'HighPerformance' {
-            $guid = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
-        }
-        Default {
-            $guid = '381b4222-f694-41f0-9685-ff5bb260df2e'
-        }
-    }
-
-    if ($guid) {
-        powercfg /setactive $guid | Out-Null
-        Write-Host "Plan de energía establecido en $Mode."
+    if ($Mode -eq 'HighPerformance') {
+        powercfg /setactive SCHEME_MIN
     } else {
-        Write-Warning "No se pudo establecer el plan de energía: GUID no encontrado."
+        powercfg /setactive SCHEME_BALANCED
     }
-    $guid = switch ($Mode) {
-        'HighPerformance' { '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' }
-        Default { '381b4222-f694-41f0-9685-ff5bb260df2e' }
-    }
-
-    powercfg /setactive $guid | Out-Null
-    Write-Host "Plan de energía establecido en $Mode."
 }
 
 function Apply-SOCProfile {
-    Write-Section "Aplicando preset SOC / Main"
-    Invoke-PrivacyTelemetrySafe
-    Invoke-DebloatSafe
-    Invoke-PreferencesSafe
+    param(
+        $HardwareProfile,
+        [ref]$StatusRef
+    )
+
+    Write-Section "Preset 1: SOC / Main (seguro)"
+    Create-RestorePointSafe
+    Clear-TempFiles
+    Apply-PrivacyTelemetrySafe
+    Apply-PrivacyHardeningExtra
+    $debloat = Apply-DebloatSafe
+    $StatusRef.Value.PackagesFailed += $debloat.Failed
+    Apply-PreferencesSafe
     Ensure-PowerPlan -Mode 'HighPerformance'
-    Set-PowerPlan -Mode 'Balanced'
-    Write-Host "Preset SOC / Main completado."
+    Handle-SysMainPrompt -HardwareProfile $HardwareProfile
+    Apply-PerformanceBaseline -HardwareProfile $HardwareProfile
+
+    $StatusRef.Value.RebootRequired = $true
+    Write-Host ""
+    Write-Host "[+] Preset SOC / Main aplicado. Reiniciá el sistema cuando puedas." -ForegroundColor Green
+    Write-OutcomeSummary -Status $StatusRef.Value
 }
 
-function Apply-AggressiveProfile {
-    Write-Section "Aplicando preset PC Lenta / Agresivo"
-    Invoke-PrivacyTelemetrySafe
-    Invoke-DebloatSafe
-    Invoke-PreferencesSafe
-    Invoke-AggressiveTweaks
-    Ensure-PowerPlan -Mode 'Ultimate'
-    Set-PowerPlan -Mode 'HighPerformance'
-    Write-Host "Preset PC Lenta / Agresivo completado."
+function Run-PCSlowPreset {
+    param(
+        $HardwareProfile,
+        [ref]$StatusRef,
+        $OemServices
+    )
+
+    Write-Section "Preset 2: PC Lenta / Agresivo"
+    Create-RestorePointSafe
+    Clear-TempFiles
+    Apply-PrivacyTelemetrySafe
+    Apply-PrivacyHardeningExtra
+    $debloat = Apply-DebloatSafe
+    $StatusRef.Value.PackagesFailed += $debloat.Failed
+    Apply-PreferencesSafe
+    Apply-PerformanceBaseline -HardwareProfile $HardwareProfile
+    Apply-AggressiveTweaks -HardwareProfile $HardwareProfile -FailedPackages ([ref]$StatusRef.Value.PackagesFailed) -OemServices $OemServices
+
+    $StatusRef.Value.RebootRequired = $true
+    Write-Host ""
+    Write-Host "[+] Preset PC Lenta / Agresivo aplicado. Reiniciá el sistema." -ForegroundColor Green
+    Write-OutcomeSummary -Status $StatusRef.Value
 }
 
-function Show-Menu {
-    Show-Banner
-    Write-Host "[1] Preset SOC / Main (seguro)" -ForegroundColor White
-    Write-Host "[2] Preset PC Lenta / Agresivo" -ForegroundColor White
-    Write-Host "[0] Salir" -ForegroundColor White
-    Clear-Host
-    Write-Host "ScytheOptimizer - versión base" -ForegroundColor Green
-    Write-Host "1. Preset SOC / Main (seguro)"
-    Write-Host "2. Preset PC Lenta / Agresivo"
-    Write-Host "0. Salir"
-    Write-Host
-}
+# ---------- MENÚ PRINCIPAL ----------
 
-Ensure-Administrator
-Ensure-PowerPlan -Mode 'HighPerformance'  # Base siempre en alto rendimiento
+do {
+    Write-Host "===== Nahue Optimizer v0.1 =====" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "1) Aplicar Preset SOC / Main (seguro)"
+    Write-Host "2) Aplicar Preset PC Lenta / Agresivo"
+    Write-Host "0) Salir"
+    Write-Host ""
+    $choice = Read-MenuChoice "Elegí una opción" @('1','2','0')
 
-$exit = $false
-while (-not $exit) {
-    Show-Menu
-    $choice = Read-Host "Selecciona una opción"
     switch ($choice) {
-        '1' { Apply-SOCProfile; Pause }
-        '2' { Apply-AggressiveProfile; Pause }
-        '0' { $exit = $true }
-        Default { Write-Host "Opción no válida" -ForegroundColor Yellow; Start-Sleep -Seconds 1 }
+        '1' { Apply-SOCProfile -HardwareProfile $hardwareProfile -StatusRef ([ref]$status) }
+        '2' { Run-PCSlowPreset -HardwareProfile $hardwareProfile -StatusRef ([ref]$status) -OemServices $oemServices }
+        '0' { break }
     }
-}
 
-Write-Host "Gracias por usar ScytheOptimizer." -ForegroundColor Green
-Write-Host "Gracias por usar ScytheOptimizer."
+    if ($choice -ne '0') {
+        Write-Host ""
+        Read-Host "Presioná Enter para volver al menú"
+        Clear-Host
+        Write-Section "Perfil detectado"
+        Write-Host "Equipo: " -NoNewline
+        if ($hardwareProfile.IsLaptop) {
+            Write-Host "Laptop" -ForegroundColor Yellow
+        } else {
+            Write-Host "Desktop" -ForegroundColor Green
+        }
+        Write-Host "RAM: $($hardwareProfile.TotalMemoryGB) GB ($($hardwareProfile.MemoryCategory))" -ForegroundColor Gray
+        Write-Host "Almacenamiento: " -NoNewline
+        if ($hardwareProfile.HasSSD -and $hardwareProfile.HasHDD) {
+            Write-Host "SSD + HDD mixto" -ForegroundColor Gray
+        } elseif ($hardwareProfile.HasSSD) {
+            Write-Host "SSD" -ForegroundColor Green
+        } else {
+            Write-Host "HDD" -ForegroundColor Yellow
+        }
+        if ($oemServices -and $oemServices.Count -gt 0) {
+            Write-Host "Servicios OEM detectados: $($oemServices.DisplayName -join ', ')" -ForegroundColor Yellow
+        }
+    }
+} while ($true)
