@@ -249,7 +249,7 @@ function Invoke-SOCOptionalPrompts {
     }
 }
 
-function Ensure-PowerPlan {
+function Apply-SOCProfile {
     param(
         [ValidateSet('Balanced','HighPerformance','Ultimate')][string]$Mode = 'HighPerformance'
 function Ensure-PowerPlan {
