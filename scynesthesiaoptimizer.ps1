@@ -33,18 +33,30 @@ try {
 function Show-Banner {
     Clear-Host
     $banner = @'
-   _____                 _   _           ____        _              _
-  / ____|               | | (_)         |  _ \      | |            | |
- | (___  _   _ _ __   __| |  _  ___ ___ | |_) | ___ | |_ ___   ___ | |_ ___  _ __
-  \___ \| | | | '_ \ / _` | | |/ __/ __||  _ < / _ \| __/ _ \ / _ \| __/ _ \| '__|
-  ____) | |_| | | | | (_| | | | (__\__ \| |_) | (_) | || (_) | (_) | || (_) | |
- |_____/ \__, |_| |_|\__,_| |_|\___|___/|____/ \___/ \__\___/ \___/ \__\___/|_|
-          __/ |
-         |___/
+
+ _____                                                                _____ 
+( ___ )--------------------------------------------------------------( ___ )
+ |   |                                                                |   | 
+ |   |                                                                |   | 
+ |   |                                  _   _               _         |   | 
+ |   |   ___  ___ _   _ _ __   ___  ___| |_| |__   ___  ___(_) __ _   |   | 
+ |   |  / __|/ __| | | | '_ \ / _ \/ __| __| '_ \ / _ \/ __| |/ _` |  |   | 
+ |   |  \__ \ (__| |_| | | | |  __/\__ \ |_| | | |  __/\__ \ | (_| |  |   | 
+ |   |  |___/\___|\__, |_| |_|\___||___/\__|_| |_|\___||___/_|\__,_|  |   | 
+ |   |       _    |___/   _             _                             |   | 
+ |   |    __| | ___| |__ | | ___   __ _| |_ ___ _ __                  |   | 
+ |   |   / _` |/ _ \ '_ \| |/ _ \ / _` | __/ _ \ '__|                 |   | 
+ |   |  | (_| |  __/ |_) | | (_) | (_| | ||  __/ |                    |   | 
+ |   |   \__,_|\___|_.__/|_|\___/ \__,_|\__\___|_|                    |   | 
+ |   |                                                                |   | 
+ |___|                                                                |___| 
+(_____)--------------------------------------------------------------(_____)
+
+
 '@
     Write-Host $banner -ForegroundColor Magenta
-    Write-Host " Safe optimization, clear choices" -ForegroundColor Green
-    Write-Host " Preset 1: Safe / Main  |  Preset 2: Slow PC / Aggressive" -ForegroundColor Gray
+    Write-Host " Scynesthesia Windows Optimizer" -ForegroundColor Green
+    Write-Host " Preset 1: Safe | Preset 2: Slow PC / Aggressive" -ForegroundColor Gray
     Write-Host " Base power plan: High performance" -ForegroundColor Yellow
     Write-Host "------------------------------------------------------------`n" -ForegroundColor DarkGray
 }
@@ -88,7 +100,7 @@ function Run-SafePreset {
     # Detect hardware (from performance.psm1)
     $HWProfile = Get-HardwareProfile
 
-    Write-Section "Starting Preset 1: Safe / Main"
+    Write-Section "Starting Preset 1: Safe (Main)"
 
     # These functions come from debloat.psm1
     Create-RestorePointSafe
@@ -112,7 +124,7 @@ function Run-SafePreset {
 
     # Summary (ui.psm1)
     Write-OutcomeSummary -Status $Status
-    Write-Host "[+] Safe / Main preset applied. Restart when possible." -ForegroundColor Green
+    Write-Host "[+] Safe preset applied. Restart when possible." -ForegroundColor Green
 }
 
 function Run-PCSlowPreset {
@@ -148,8 +160,8 @@ function Run-PCSlowPreset {
 
 do {
     Show-Banner
-    Write-Host "1) Apply Preset Safe / Main"
-    Write-Host "2) Apply Preset Slow PC / Aggressive"
+    Write-Host "1) Apply Safe preset (Main)"
+    Write-Host "2) Apply Slow PC / Aggressive preset"
     Write-Host "3) GAMING MODE / FPS BOOST (Add-on)"
     Write-Host "4) Repair Tools"
     Write-Host "0) Exit"
