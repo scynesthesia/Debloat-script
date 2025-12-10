@@ -16,9 +16,9 @@ function Ask-YesNo {
         if ([string]::IsNullOrWhiteSpace($resp)) { $resp = $Default }
 
         switch ($resp.ToLower()) {
-            { $_ -in 'y' } { return $true }
-            { $_ -in 'n' } { return $false }
-            default { Write-Host "  [!] Invalid option. Please answer y/n." -ForegroundColor Yellow }
+            { $_ -in 'y', 'yes' } { return $true }
+            { $_ -in 'n', 'no' } { return $false }
+            default { Write-Host "  [!] Invalid option. Please respond with y or n." -ForegroundColor Yellow }
         }
     }
 }
