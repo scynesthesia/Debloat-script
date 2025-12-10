@@ -48,30 +48,61 @@ function Apply-CustomGamingPowerSettings {
         Write-Host "      Recommended only while plugged into AC power." -ForegroundColor Yellow
     }
 
-    Write-Host "Applying adjustments to the CURRENT plan (SCHEME_CURRENT)." -ForegroundColor DarkGray
+    Write-Host "Applying adjustments to the 'Scynesthesia Gaming Mode' plan." -ForegroundColor DarkGray
 
     if (Ask-YesNo "Apply hardcore power tweaks to prioritize FPS?" 'n') {
         try {
+            $activeSchemeOutput = powercfg /getactivescheme
+            $activeSchemeMatch  = [regex]::Match($activeSchemeOutput, '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
+            if (-not $activeSchemeMatch.Success) {
+                throw "Unable to detect active power scheme GUID."
+            }
+
+            $activeGuid = $activeSchemeMatch.Groups[1].Value
+
+            $schemeListOutput = powercfg /list
+            $gamingGuid = $null
+            $schemeMatches = [regex]::Matches($schemeListOutput, 'Power Scheme GUID:\s*([0-9a-fA-F-]+)\s*\(([^)]+)\)')
+
+            foreach ($match in $schemeMatches) {
+                if ($match.Groups[2].Value -eq "Scynesthesia Gaming Mode") {
+                    $gamingGuid = $match.Groups[1].Value
+                    break
+                }
+            }
+
+            if (-not $gamingGuid) {
+                $duplicateOutput = powercfg -duplicatescheme $activeGuid
+                $duplicateMatch  = [regex]::Match($duplicateOutput, '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
+
+                if (-not $duplicateMatch.Success) {
+                    throw "Unable to duplicate active power scheme."
+                }
+
+                $gamingGuid = $duplicateMatch.Groups[1].Value
+                powercfg -changename $gamingGuid "Scynesthesia Gaming Mode"
+            }
+
             # 1) Disks / NVMe
-            powercfg /setacvalueindex SCHEME_CURRENT SUB_DISK DISKIDLE 0
-            powercfg /setacvalueindex SCHEME_CURRENT SUB_DISK 0b2d69d7-a2a1-449c-9680-f91c70521c60 0
+            powercfg /setacvalueindex $gamingGuid SUB_DISK DISKIDLE 0
+            powercfg /setacvalueindex $gamingGuid SUB_DISK 0b2d69d7-a2a1-449c-9680-f91c70521c60 0
 
             # 2) CPU / Core parking / EPP
-            powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCTHROTTLEMIN 100
-            powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR 0cc5b647-c1df-4637-891a-dec35c318583 100
-            powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR 36687f9e-e3a5-4dbf-b1dc-15eb381c6863 0
+            powercfg /setacvalueindex $gamingGuid SUB_PROCESSOR PROCTHROTTLEMIN 100
+            powercfg /setacvalueindex $gamingGuid SUB_PROCESSOR 0cc5b647-c1df-4637-891a-dec35c318583 100
+            powercfg /setacvalueindex $gamingGuid SUB_PROCESSOR 36687f9e-e3a5-4dbf-b1dc-15eb381c6863 0
 
             # 3) USB selective suspend OFF
-            powercfg /setacvalueindex SCHEME_CURRENT `
+            powercfg /setacvalueindex $gamingGuid `
                 2a737441-1930-4402-8d77-b2bebba308a3 `
                 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
 
             # 4) PCIe Link State OFF
-            powercfg /setacvalueindex SCHEME_CURRENT `
+            powercfg /setacvalueindex $gamingGuid `
                 501a4d13-42af-4429-9fd1-a8218c268e20 `
                 ee12f906-d277-404b-b6da-e5fa1a576df5 0
 
-            powercfg /setactive SCHEME_CURRENT
+            powercfg /setactive $gamingGuid
 
             Write-Host "  [+] Power settings for gaming applied." -ForegroundColor Green
         } catch {
