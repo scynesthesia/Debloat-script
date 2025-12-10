@@ -10,15 +10,24 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 # ---------- 2. MODULE IMPORTS (MOVIDO ARRIBA PARA EVITAR ERRORES) ----------
-$ScriptPath = $PSScriptRoot
+$ScriptPath = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 try {
-    Import-Module "$ScriptPath\modules\ui.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\privacy.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\debloat.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\performance.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\aggressive.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\repair.psm1" -Force -ErrorAction Stop
-    Import-Module "$ScriptPath\modules\gaming.psm1" -Force -ErrorAction Stop
+    $moduleFiles = @(
+        'ui.psm1',
+        'privacy.psm1',
+        'debloat.psm1',
+        'performance.psm1',
+        'aggressive.psm1',
+        'repair.psm1',
+        'gaming.psm1'
+    )
+
+    $modulesRoot = Join-Path $ScriptPath 'modules'
+    foreach ($module in $moduleFiles) {
+        $modulePath = Join-Path $modulesRoot $module
+        Import-Module $modulePath -Force -ErrorAction Stop
+    }
+
     Write-Host "Modules loaded successfully." -ForegroundColor Green
 } catch {
     Write-Host "Error loading modules: $_" -ForegroundColor Red
