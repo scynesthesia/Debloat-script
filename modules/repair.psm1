@@ -1,28 +1,28 @@
 function Invoke-NetworkSoftReset {
-    Write-Section "Reparación Básica de Red"
+    Write-Section "Basic Network Repair"
 
-    Write-Host "Se limpiará DNS y se renovará la IP. Esto NO toca el firewall ni configuraciones avanzadas." -ForegroundColor Gray
+    Write-Host "This will clear DNS and renew the IP. It does NOT touch the firewall or advanced settings." -ForegroundColor Gray
 
-    if (Ask-YesNo "¿Querés ejecutar la reparación básica de red?" 'n') {
+    if (Ask-YesNo "Run the basic network repair?" 'n') {
         ipconfig /flushdns | Out-Null
         ipconfig /release | Out-Null
         ipconfig /renew | Out-Null
-        Write-Host "[OK] Reparación básica de red finalizada." -ForegroundColor Green
+        Write-Host "[OK] Basic network repair completed." -ForegroundColor Green
 
-        if (Ask-YesNo "¿También querés ejecutar 'netsh winsock reset'? (Requiere reinicio)" 'n') {
+        if (Ask-YesNo "Also run 'netsh winsock reset'? (Requires reboot)" 'n') {
             netsh winsock reset | Out-Null
-            Write-Host "[OK] Winsock reseteado. Reiniciar para aplicar cambios." -ForegroundColor Yellow
+            Write-Host "[OK] Winsock reset. Reboot to apply changes." -ForegroundColor Yellow
         }
     }
 }
 
 function Invoke-SystemRepair {
-    Write-Section "Verificación de Integridad de Windows (SFC)"
-    Write-Host "Esto busca archivos corruptos del sistema y los repara automáticamente." -ForegroundColor Gray
+    Write-Section "Windows Integrity Check (SFC)"
+    Write-Host "This scans for corrupt system files and repairs them automatically." -ForegroundColor Gray
 
-    if (Ask-YesNo "¿Iniciar SFC /scannow?" 'n') {
+    if (Ask-YesNo "Start SFC /scannow?" 'n') {
         sfc /scannow
-        Write-Host "[OK] SFC finalizado." -ForegroundColor Green
+        Write-Host "[OK] SFC completed." -ForegroundColor Green
     }
 }
 

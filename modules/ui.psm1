@@ -10,15 +10,15 @@ function Ask-YesNo {
         [string]$Default = 'n'
     )
 
-    $defaultText = if ($Default -match '^[sSyY]$') { '[S/n]' } else { '[s/N]' }
+    $defaultText = if ($Default -match '^[yY]$') { '[Y/n]' } else { '[y/N]' }
     while ($true) {
         $resp = Read-Host "$Question $defaultText"
         if ([string]::IsNullOrWhiteSpace($resp)) { $resp = $Default }
 
         switch ($resp.ToLower()) {
-            { $_ -in 's', 'y' } { return $true }
+            { $_ -in 'y' } { return $true }
             { $_ -in 'n' } { return $false }
-            default { Write-Host "  [!] Opción inválida. Respondé con s/n." -ForegroundColor Yellow }
+            default { Write-Host "  [!] Invalid option. Please answer y/n." -ForegroundColor Yellow }
         }
     }
 }
@@ -32,7 +32,7 @@ function Read-MenuChoice {
     while ($true) {
         $choice = Read-Host $Prompt
         if ($ValidOptions -contains $choice) { return $choice }
-        Write-Host "[!] Opción inválida" -ForegroundColor Yellow
+        Write-Host "[!] Invalid option" -ForegroundColor Yellow
     }
 }
 
@@ -49,7 +49,7 @@ function Set-RegistryValueSafe {
         }
         New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType $Type -Force | Out-Null
     } catch {
-        Write-Host "  [-] Error en $Path -> $Name : $_" -ForegroundColor Red
+        Write-Host "  [-] Error at $Path -> $Name : $_" -ForegroundColor Red
     }
 }
 
@@ -59,7 +59,7 @@ function Write-OutcomeSummary {
     )
 
     Write-Host ""
-    Write-Host "===== Resumen =====" -ForegroundColor Cyan
+    Write-Host "===== Summary =====" -ForegroundColor Cyan
     Write-Host "[+] Privacy hardened" -ForegroundColor Green
     Write-Host "[+] Debloat applied" -ForegroundColor Green
     Write-Host "[+] Performance tweaks applied" -ForegroundColor Green
