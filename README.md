@@ -1,10 +1,10 @@
-# ⚔️ Scynesthesia Optimizer (Nahue Windows Optimizer)
+# ⚔️ Scynesthesia Windows Optimizer (Nahue Windows Optimizer)
 
 > A modular, hardware-aware Windows optimization suite designed for performance, privacy, and stability.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg) ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey) ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue)
 
-**Scynesthesia Optimizer** is a PowerShell-based utility that debloats Windows, enhances privacy by disabling telemetry, and optimizes system performance. Unlike generic "cleaners," it features **hardware detection** (SSD vs HDD, Laptop vs Desktop) to apply safe, context-aware tweaks.
+**Scynesthesia Windows Optimizer** is a PowerShell-based utility that debloats Windows, enhances privacy by disabling telemetry, and optimizes system performance. Unlike generic "cleaners," it features **hardware detection** (SSD vs HDD, Laptop vs Desktop) to apply safe, context-aware tweaks.
 
 ## 🚀 Features
 

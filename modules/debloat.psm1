@@ -1,7 +1,7 @@
 function Create-RestorePointSafe {
     Write-Section "Creating restore point"
     try {
-        Checkpoint-Computer -Description "Scynesthesia Optimizer v0.1" -RestorePointType "MODIFY_SETTINGS"
+        Checkpoint-Computer -Description "Scynesthesia Windows Optimizer v0.1" -RestorePointType "MODIFY_SETTINGS"
         Write-Host "  [+] Restore point created."
     } catch {
         Write-Host "  [!] Unable to create restore point (is system protection disabled?)" -ForegroundColor Yellow
