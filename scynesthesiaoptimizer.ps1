@@ -9,19 +9,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit 1
 }
 
-# Optional logging
-$TranscriptStarted = $false
-if (Ask-YesNo "Enable session logging to a file? This may capture sensitive information. [y/N]" 'n') {
-    $logDir = Join-Path $env:TEMP "ScynesthesiaOptimizer"
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logFile = Join-Path $logDir "Scynesthesia_Log_$timestamp.txt"
-    Start-Transcript -Path $logFile -Append
-    $TranscriptStarted = $true
-}
-
-# ---------- 2. MODULE IMPORTS ----------
-# Load functions from the files in the /modules folder.
+# ---------- 2. MODULE IMPORTS (MOVIDO ARRIBA PARA EVITAR ERRORES) ----------
 $ScriptPath = $PSScriptRoot
 try {
     Import-Module "$ScriptPath\modules\ui.psm1" -Force -ErrorAction Stop
@@ -39,7 +27,26 @@ try {
     exit 1
 }
 
-# ---------- 3. LOCAL FUNCTIONS (Menu + visuals) ----------
+# ---------- 3. LOGGING (AHORA SÍ FUNCIONA) ----------
+$TranscriptStarted = $false
+# Ahora Ask-YesNo ya existe porque importamos ui.psm1 arriba
+if (Ask-YesNo "Enable session logging to a file? (Recommended for Service Records) [y/N]" 'n') {
+    $logDir = Join-Path $env:TEMP "ScynesthesiaOptimizer"
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logFile = Join-Path $logDir "Scynesthesia_Log_$timestamp.txt"
+    
+    try {
+        Start-Transcript -Path $logFile -Append -ErrorAction Stop
+        $TranscriptStarted = $true
+        Write-Host "Logging started: $logFile" -ForegroundColor Gray
+    } catch {
+        Write-Warning "Could not start logging. Check permissions."
+    }
+}
+
+# ---------- 4. LOCAL FUNCTIONS ----------
 
 function Show-Banner {
     Clear-Host
@@ -47,7 +54,6 @@ function Show-Banner {
 
  _____                                                                _____ 
 ( ___ )--------------------------------------------------------------( ___ )
- |   |                                                                |   | 
  |   |                                                                |   | 
  |   |                                  _   _               _         |   | 
  |   |   ___  ___ _   _ _ __   ___  ___| |_| |__   ___  ___(_) __ _   |   | 
@@ -63,7 +69,6 @@ function Show-Banner {
  |___|                                                                |___| 
 (_____)--------------------------------------------------------------(_____)
 
-
 '@
     Write-Host $banner -ForegroundColor Magenta
     Write-Host " Scynesthesia Windows Optimizer" -ForegroundColor Green
@@ -73,10 +78,8 @@ function Show-Banner {
 }
 
 function Ensure-PowerPlan {
-    param(
-        [ValidateSet('Balanced','HighPerformance')][string]$Mode = 'HighPerformance'
-    )
-    Write-Host "  [i] Setting power plan to: $Mode" -ForegroundColor Gray
+    param([ValidateSet('Balanced','HighPerformance')][string]$Mode = 'HighPerformance')
+    Write-Host "  [i] Setting base power plan to: $Mode" -ForegroundColor Gray
     if ($Mode -eq 'HighPerformance') {
         powercfg /setactive SCHEME_MIN
     } else {
@@ -86,15 +89,12 @@ function Ensure-PowerPlan {
 
 function Invoke-SafeOptionalPrompts {
     Write-Section "Additional options for Safe preset"
-
     $options = @(
         @{ Key = '1'; Description = 'Disable Cortana in search'; Action = { Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search" "AllowCortana" 0 } },
         @{ Key = '2'; Description = 'Disable Store suggestions in Start'; Action = { Set-RegistryValueSafe "HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SilentInstalledAppsEnabled" 0 } },
         @{ Key = '3'; Description = 'Enable compact view in File Explorer'; Action = { Set-RegistryValueSafe "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "UseCompactMode" 1 } }
     )
-
     foreach ($opt in $options) {
-        # Uses Ask-YesNo imported from ui.psm1
         if (Ask-YesNo -Question "$($opt.Key)) $($opt.Description)" -Default 'n') {
             & $opt.Action
             Write-Host "✔ $($opt.Description) applied." -ForegroundColor Green
@@ -104,36 +104,28 @@ function Invoke-SafeOptionalPrompts {
     }
 }
 
-# ---------- 4. PRESETS (Orchestration) ----------
+# ---------- 5. PRESETS ----------
 
 function Run-SafePreset {
     $Status = @{ PackagesFailed = @(); RebootRequired = $false }
-    # Detect hardware (from performance.psm1)
     $HWProfile = Get-HardwareProfile
 
     Write-Section "Starting Preset 1: Safe (Main)"
-
-    # These functions come from debloat.psm1
     Create-RestorePointSafe
     Clear-TempFiles
 
-    # Privacy (privacy.psm1) and Debloat
+    # Safe Debloat (Standard list)
     Apply-PrivacyTelemetrySafe
-    $debloatResult = Apply-DebloatSafe
+    $debloatResult = Apply-DebloatSafe # Usa la lista por defecto definida en el módulo
     $Status.PackagesFailed += $debloatResult.Failed
 
-    # Preferences (privacy.psm1) and Extras
     Apply-PreferencesSafe
     Invoke-SafeOptionalPrompts
-
-    # Performance (performance.psm1)
     Handle-SysMainPrompt -HardwareProfile $HWProfile
     Apply-PerformanceBaseline -HardwareProfile $HWProfile
     Ensure-PowerPlan -Mode 'HighPerformance'
 
     $Status.RebootRequired = $true
-
-    # Summary (ui.psm1)
     Write-OutcomeSummary -Status $Status
     Write-Host "[+] Safe preset applied. Restart when possible." -ForegroundColor Green
 }
@@ -144,30 +136,29 @@ function Run-PCSlowPreset {
     $OemServices = Get-OEMServiceInfo
 
     Write-Section "Starting Preset 2: Slow PC / Aggressive"
-
     Create-RestorePointSafe
     Clear-TempFiles
 
-    # Safe baseline
     Apply-PrivacyTelemetrySafe
-    $debloatResult = Apply-DebloatSafe
+    
+    # AQUI ESTA EL CAMBIO: Usamos Apply-DebloatAggressive para limpieza profunda
+    # Esto usa la nueva funcion que creaste en debloat.psm1
+    $debloatResult = Apply-DebloatAggressive 
     $Status.PackagesFailed += $debloatResult.Failed
+    
     Apply-PreferencesSafe
-
-    # Performance Aggressive
     Apply-PerformanceBaseline -HardwareProfile $HWProfile
     Ensure-PowerPlan -Mode 'HighPerformance'
 
-    # Aggressive tweaks (aggressive.psm1)
+    # Tweaks adicionales especificos de PC lenta
     Apply-AggressiveTweaks -HardwareProfile $HWProfile -FailedPackages ([ref]$Status.PackagesFailed) -OemServices $OemServices
 
     $Status.RebootRequired = $true
-
     Write-OutcomeSummary -Status $Status
     Write-Host "[+] Slow PC / Aggressive preset applied. Please restart." -ForegroundColor Green
 }
 
-# ---------- 5. MAIN LOOP (MENU) ----------
+# ---------- 6. MAIN LOOP ----------
 
 do {
     Show-Banner
@@ -206,7 +197,6 @@ do {
 try {
     if ($TranscriptStarted) {
         Stop-Transcript | Out-Null
+        Write-Host "Log saved." -ForegroundColor Gray
     }
-} catch {
-    # Ignore errors if transcript was not started
-}
+} catch {}
