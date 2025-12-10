@@ -4,7 +4,7 @@ function Create-RestorePointSafe {
         Checkpoint-Computer -Description "Scynesthesia Windows Optimizer v0.1" -RestorePointType "MODIFY_SETTINGS"
         Write-Host "  [+] Restore point created."
     } catch {
-        Write-Host "  [!] Unable to create restore point (is system protection disabled?)" -ForegroundColor Yellow
+        Handle-Error -Context "Creating restore point" -ErrorRecord $_
     }
 }
 
@@ -21,7 +21,7 @@ function Clear-TempFiles {
             try {
                 Get-ChildItem $p -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
             } catch {
-                Write-Host "    [-] Error cleaning $p : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Cleaning path $p" -ErrorRecord $_
             }
         }
     }
@@ -32,7 +32,7 @@ function Clear-TempFiles {
         try {
             Get-ChildItem $wu -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
         } catch {
-            Write-Host "    [-] Error cleaning SoftwareDistribution : $_" -ForegroundColor Yellow
+            Handle-Error -Context "Cleaning Windows Update cache" -ErrorRecord $_
         }
     }
 }
@@ -47,7 +47,7 @@ function Clear-DeepTempAndThumbs {
         try {
             Get-ChildItem $thumbDir -Filter "thumbcache_*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
         } catch {
-            Write-Host "    [-] Could not clear thumbnails: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Clearing thumbnail cache" -ErrorRecord $_
         }
     }
 }
@@ -82,7 +82,7 @@ function Apply-DebloatSafe {
                 Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
             } catch {
                 $failed += $a
-                Write-Host "    [-] Error removing $a : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Removing appx package $a" -ErrorRecord $_
             }
         } else {
             Write-Host "  [ ] $a is not installed."
@@ -124,7 +124,7 @@ function Apply-DebloatAggressive {
                 Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
             } catch {
                 $failed += $a
-                Write-Host "    [-] Error removing $a : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Removing appx package $a" -ErrorRecord $_
             }
         } else {
             Write-Host "  [ ] $a is not installed."
@@ -139,7 +139,7 @@ function Apply-DebloatAggressive {
                 Remove-AppxProvisionedPackage -Online -PackageName $p.PackageName | Out-Null
             } catch {
                 $failed += $p.PackageName
-                Write-Host "    [-] Error removing provisioned package $($p.PackageName) : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Removing provisioned package $($p.PackageName)" -ErrorRecord $_
             }
         }
     }
