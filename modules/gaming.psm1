@@ -47,6 +47,50 @@ function Optimize-GamingScheduler {
     }
 }
 
+function Get-OrCreate-GamingPlan {
+    $planName = "Scynesthesia Gaming Mode"
+
+    try {
+        $plans = Get-CimInstance -Namespace root\cimv2\power -ClassName Win32_PowerPlan -ErrorAction Stop
+    } catch {
+        throw "Unable to query power plans via CIM: $_"
+    }
+
+    $existingPlan = $plans | Where-Object { $_.ElementName -eq $planName }
+    if ($existingPlan) {
+        return $existingPlan
+    }
+
+    $activePlan = $plans | Where-Object { $_.IsActive -eq $true } | Select-Object -First 1
+    if (-not $activePlan) {
+        throw "Unable to detect active power plan."
+    }
+
+    $activeGuid = ($activePlan.InstanceID -split '[{}]')[1]
+    if (-not $activeGuid) {
+        throw "Unable to parse active power plan GUID."
+    }
+
+    $duplicateOutput = powercfg -duplicatescheme $activeGuid
+    $duplicateMatch  = [regex]::Match($duplicateOutput, '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
+
+    if (-not $duplicateMatch.Success) {
+        throw "Unable to duplicate active power scheme."
+    }
+
+    $newGuid = $duplicateMatch.Groups[1].Value
+    powercfg -changename $newGuid $planName
+
+    $gamingPlan = Get-CimInstance -Namespace root\cimv2\power -ClassName Win32_PowerPlan -ErrorAction Stop |
+        Where-Object { $_.ElementName -eq $planName }
+
+    if (-not $gamingPlan) {
+        throw "Failed to locate gaming power plan after creation."
+    }
+
+    return $gamingPlan
+}
+
 function Apply-CustomGamingPowerSettings {
     Write-Section "Power Plan: 'Custom Gaming Tweaks'"
 
@@ -60,35 +104,11 @@ function Apply-CustomGamingPowerSettings {
 
     if (Ask-YesNo "Apply hardcore power tweaks to prioritize FPS?" 'n') {
         try {
-            $activeSchemeOutput = powercfg /getactivescheme
-            $activeSchemeMatch  = [regex]::Match($activeSchemeOutput, '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
-            if (-not $activeSchemeMatch.Success) {
-                throw "Unable to detect active power scheme GUID."
-            }
-
-            $activeGuid = $activeSchemeMatch.Groups[1].Value
-
-            $schemeListOutput = powercfg /list
-            $gamingGuid = $null
-            $schemeMatches = [regex]::Matches($schemeListOutput, 'Power Scheme GUID:\s*([0-9a-fA-F-]+)\s*\(([^)]+)\)')
-
-            foreach ($match in $schemeMatches) {
-                if ($match.Groups[2].Value -eq "Scynesthesia Gaming Mode") {
-                    $gamingGuid = $match.Groups[1].Value
-                    break
-                }
-            }
+            $gamingPlan = Get-OrCreate-GamingPlan
+            $gamingGuid = ($gamingPlan.InstanceID -split '[{}]')[1]
 
             if (-not $gamingGuid) {
-                $duplicateOutput = powercfg -duplicatescheme $activeGuid
-                $duplicateMatch  = [regex]::Match($duplicateOutput, '([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})')
-
-                if (-not $duplicateMatch.Success) {
-                    throw "Unable to duplicate active power scheme."
-                }
-
-                $gamingGuid = $duplicateMatch.Groups[1].Value
-                powercfg -changename $gamingGuid "Scynesthesia Gaming Mode"
+                throw "Unable to parse gaming power plan GUID."
             }
 
             # 1) Disks / NVMe
