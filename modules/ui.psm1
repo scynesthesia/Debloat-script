@@ -4,6 +4,37 @@ function Write-Section {
     Write-Host "========== $Text ==========" -ForegroundColor Cyan
 }
 
+function Write-Log {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Message,
+        [ValidateSet('Info','Warning','Error')]
+        [string]$Level = 'Info'
+    )
+
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    $logEntry = "$timestamp [$Level] $Message"
+
+    switch ($Level) {
+        'Error'   { Write-Host $logEntry -ForegroundColor Red }
+        'Warning' { Write-Host $logEntry -ForegroundColor Yellow }
+        default   { Write-Host $logEntry -ForegroundColor Gray }
+    }
+}
+
+function Handle-Error {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Context,
+        [Parameter(Mandatory)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    $message = "$Context: $($ErrorRecord.Exception.Message)"
+    Write-Error -Message $message
+    Write-Log -Message $message -Level 'Error'
+}
+
 function Ask-YesNo {
     param(
         [string]$Question,
@@ -49,7 +80,7 @@ function Set-RegistryValueSafe {
         }
         New-ItemProperty -Path $Path -Name $Name -Value $Value -PropertyType $Type -Force | Out-Null
     } catch {
-        Write-Host "  [-] Error at $Path -> $Name : $_" -ForegroundColor Red
+        Handle-Error -Context "Setting registry value $Path -> $Name" -ErrorRecord $_
     }
 }
 
@@ -77,4 +108,4 @@ function Write-OutcomeSummary {
     }
 }
 
-Export-ModuleMember -Function Write-Section, Ask-YesNo, Read-MenuChoice, Set-RegistryValueSafe, Write-OutcomeSummary
+Export-ModuleMember -Function Write-Section, Write-Log, Handle-Error, Ask-YesNo, Read-MenuChoice, Set-RegistryValueSafe, Write-OutcomeSummary

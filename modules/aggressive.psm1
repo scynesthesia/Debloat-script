@@ -16,7 +16,7 @@ function Apply-AggressiveTweaks {
         try {
             powercfg -h off
         } catch {
-            Write-Host "    [-] Error disabling hibernation: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Disabling hibernation" -ErrorRecord $_
         }
     } else {
         Write-Host "  [ ] Hibernation left unchanged."
@@ -42,7 +42,7 @@ function Apply-AggressiveTweaks {
                 Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
             } catch {
                 $FailedPackages.Value += $a
-                Write-Host "      [-] Error removing $a : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Removing appx package $a" -ErrorRecord $_
             }
         }
     }
@@ -59,7 +59,7 @@ function Apply-AggressiveTweaks {
                 Set-Service -Name "Spooler" -StartupType Disabled
                 Write-Host "  [+] Print Spooler disabled"
             } catch {
-                Write-Host "    [-] Could not disable Spooler: $_" -ForegroundColor Yellow
+                Handle-Error -Context "Disabling Print Spooler service" -ErrorRecord $_
             }
         }
     } else {
@@ -73,7 +73,7 @@ function Apply-AggressiveTweaks {
             Disable-ScheduledTask -TaskPath "\\Microsoft\\OneDrive\\" -TaskName "OneDrive Standalone Update Task-S-1-5-21" -ErrorAction SilentlyContinue | Out-Null
             Write-Host "  [+] OneDrive will not auto-start"
         } catch {
-            Write-Host "    [-] Could not block OneDrive auto-start: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Blocking OneDrive auto-start" -ErrorRecord $_
         }
     }
 
@@ -89,7 +89,7 @@ function Apply-AggressiveTweaks {
                 schtasks /Change /TN $t /Disable | Out-Null
                 Write-Host "  [+] Task $t disabled"
             } catch {
-                Write-Host "    [-] Could not disable $t : $_" -ForegroundColor Yellow
+                Handle-Error -Context "Disabling scheduled task $t" -ErrorRecord $_
             }
         }
     }
@@ -108,7 +108,7 @@ function Apply-AggressiveTweaks {
                     $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue
                 } catch {
                     $FailedPackages.Value += $pkg.Name
-                    Write-Host "    [-] Error removing $($pkg.Name): $_" -ForegroundColor Yellow
+                    Handle-Error -Context "Removing appx package $($pkg.Name)" -ErrorRecord $_
                 }
             }
         }
@@ -125,7 +125,7 @@ function Apply-AggressiveTweaks {
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
             Write-Host "  [+] Auto-start for Teams (personal) disabled"
         } catch {
-            Write-Host "    [-] Could not disable Teams auto-start: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Disabling Teams auto-start" -ErrorRecord $_
         }
     }
 
@@ -144,7 +144,7 @@ function Apply-AggressiveTweaks {
                 & $pathSys /uninstall
             }
         } catch {
-            Write-Host "    [-] Error removing OneDrive: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Uninstalling OneDrive" -ErrorRecord $_
         }
     } else {
         Write-Host "  [ ] OneDrive stays installed."

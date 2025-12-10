@@ -30,7 +30,11 @@ try {
 
     Write-Host "Modules loaded successfully." -ForegroundColor Green
 } catch {
-    Write-Host "Error loading modules: $_" -ForegroundColor Red
+    if (Get-Command Handle-Error -ErrorAction SilentlyContinue) {
+        Handle-Error -Context "Loading modules" -ErrorRecord $_
+    } else {
+        Write-Error "Error loading modules: $($_.Exception.Message)"
+    }
     Write-Host "Make sure the 'modules' folder is next to this script."
     Read-Host "Press Enter to exit"
     exit 1

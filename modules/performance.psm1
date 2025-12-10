@@ -49,7 +49,7 @@ function Handle-SysMainPrompt {
             Set-Service -Name "SysMain" -StartupType Disabled
             Write-Host "  [+] SysMain disabled"
         } catch {
-            Write-Host "  [-] Could not adjust SysMain: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Disabling SysMain service" -ErrorRecord $_
         }
     } elseif (Ask-YesNo "Ensure SysMain is enabled and Automatic?" 'y') {
         try {
@@ -57,7 +57,7 @@ function Handle-SysMainPrompt {
             Start-Service -Name "SysMain" -ErrorAction SilentlyContinue
             Write-Host "  [+] SysMain enabled"
         } catch {
-            Write-Host "  [-] Could not enable SysMain: $_" -ForegroundColor Yellow
+            Handle-Error -Context "Enabling SysMain service" -ErrorRecord $_
         }
     } else {
         Write-Host "  [ ] SysMain left unchanged."
@@ -98,7 +98,7 @@ function Enable-UltimatePerformancePlan {
         powercfg -setactive $guid
         Write-Host "  [+] Ultimate Performance active."
     } catch {
-        Write-Host "  [!] Could not activate Ultimate Performance: $_" -ForegroundColor Yellow
+        Handle-Error -Context "Activating Ultimate Performance power plan" -ErrorRecord $_
     }
 }
 

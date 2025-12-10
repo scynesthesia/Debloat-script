@@ -102,14 +102,14 @@ function Apply-CustomGamingPowerSettings {
 
     Write-Host "Applying adjustments to the 'Scynesthesia Gaming Mode' plan." -ForegroundColor DarkGray
 
-    if (Ask-YesNo "Apply hardcore power tweaks to prioritize FPS?" 'n') {
-        try {
-            $gamingPlan = Get-OrCreate-GamingPlan
-            $gamingGuid = ($gamingPlan.InstanceID -split '[{}]')[1]
+        if (Ask-YesNo "Apply hardcore power tweaks to prioritize FPS?" 'n') {
+            try {
+                $gamingPlan = Get-OrCreate-GamingPlan
+                $gamingGuid = ($gamingPlan.InstanceID -split '[{}]')[1]
 
-            if (-not $gamingGuid) {
-                throw "Unable to parse gaming power plan GUID."
-            }
+                if (-not $gamingGuid) {
+                    throw "Unable to parse gaming power plan GUID."
+                }
 
             # 1) Disks / NVMe
             powercfg /setacvalueindex $gamingGuid SUB_DISK DISKIDLE 0
@@ -130,15 +130,15 @@ function Apply-CustomGamingPowerSettings {
                 501a4d13-42af-4429-9fd1-a8218c268e20 `
                 ee12f906-d277-404b-b6da-e5fa1a576df5 0
 
-            powercfg /setactive $gamingGuid
+                powercfg /setactive $gamingGuid
 
-            Write-Host "  [+] Power settings for gaming applied." -ForegroundColor Green
-        } catch {
-            Write-Host "  [-] Error applying power settings: $_" -ForegroundColor Yellow
+                Write-Host "  [+] Power settings for gaming applied." -ForegroundColor Green
+            } catch {
+                Handle-Error -Context "Applying gaming power settings" -ErrorRecord $_
+            }
+        } else {
+            Write-Host "  [ ] Hardcore power tweaks skipped." -ForegroundColor DarkGray
         }
-    } else {
-        Write-Host "  [ ] Hardcore power tweaks skipped." -ForegroundColor DarkGray
     }
-}
 
 Export-ModuleMember -Function Optimize-NetworkLatency, Optimize-GamingScheduler, Apply-CustomGamingPowerSettings
