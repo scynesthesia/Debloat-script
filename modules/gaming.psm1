@@ -7,6 +7,14 @@ function Optimize-NetworkLatency {
         Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "NetworkThrottlingIndex" 0xffffffff
         Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "SystemResponsiveness" 0
 
+        $profile = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"
+        if ($profile.SystemResponsiveness -ne 0) {
+            Write-Warning "SystemResponsiveness could not be set to 0. This may be blocked by TrustedInstaller or insufficient permissions."
+        }
+        if ($profile.NetworkThrottlingIndex -ne 0xffffffff) {
+            Write-Warning "NetworkThrottlingIndex could not be set. Check permissions."
+        }
+
         # Nagle / TCP at the interface level
         $tcpParams  = "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces"
         $interfaces = Get-ChildItem $tcpParams -ErrorAction SilentlyContinue
