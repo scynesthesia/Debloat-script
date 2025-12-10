@@ -33,6 +33,19 @@ Built-in troubleshooting for common issues:
 
 ---
 
+## 🛠️ Configuration
+
+Scynesthesia Optimizer avoids hardcoded lists. You can customize exactly what gets removed by editing the configuration file:
+
+* **File:** `config/apps.json`
+* **SafeRemove:** Apps removed in the Main/Safe profile.
+* **AggressiveRemove:** Apps removed in the Aggressive profile.
+* **AggressiveTweaksRemove:** Extra apps removed only in the Aggressive preset.
+
+*Example: To keep the Xbox App, simply remove `"Microsoft.XboxApp"` from the list in `apps.json` before running the script.*
+
+---
+
 ## 📦 Installation & Usage
 
 1.  **Download** the repository (or clone it):
