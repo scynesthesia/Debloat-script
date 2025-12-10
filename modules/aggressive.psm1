@@ -7,25 +7,25 @@ function Apply-AggressiveTweaks {
         $OemServices
     )
 
-    Write-Section "Tweaks adicionales para PC lenta (más agresivo)"
+    Write-Section "Additional tweaks for slow PCs (more aggressive)"
 
     if ($HardwareProfile.IsLaptop) {
-        Write-Host "  [ ] Laptop detectada: se mantiene la hibernación para no romper suspensión." -ForegroundColor Yellow
-    } elseif (Ask-YesNo "¿Desactivar hibernación para liberar espacio y arranque rápido?" 's') {
-        Write-Host "  [+] Desactivando hibernación"
+        Write-Host "  [ ] Laptop detected: hibernation kept to avoid breaking sleep." -ForegroundColor Yellow
+    } elseif (Ask-YesNo "Disable hibernation to free disk space and speed up boot?" 'y') {
+        Write-Host "  [+] Disabling hibernation"
         try {
             powercfg -h off
         } catch {
-            Write-Host "    [-] Error desactivando hibernación: $_" -ForegroundColor Yellow
+            Write-Host "    [-] Error disabling hibernation: $_" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  [ ] Hibernación sin cambios."
+        Write-Host "  [ ] Hibernation left unchanged."
     }
 
-    Write-Host "  [+] Bloqueando apps en segundo plano"
+    Write-Host "  [+] Blocking background apps"
     Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" "LetAppsRunInBackground" 2
 
-    Write-Host "  [+] Debloat extra (PC lenta)"
+    Write-Host "  [+] Additional debloat for slow PCs"
     $extra = @(
         "Microsoft.People",
         "Microsoft.SkypeApp",
@@ -37,47 +37,47 @@ function Apply-AggressiveTweaks {
     foreach ($a in $extra) {
         $pkg = Get-AppxPackage -AllUsers -Name $a -ErrorAction SilentlyContinue
         if ($pkg) {
-            Write-Host "    [+] Quitando $a"
+            Write-Host "    [+] Removing $a"
             try {
                 Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
             } catch {
                 $FailedPackages.Value += $a
-                Write-Host "      [-] Error quitando $a : $_" -ForegroundColor Yellow
+                Write-Host "      [-] Error removing $a : $_" -ForegroundColor Yellow
             }
         }
     }
 
     if ($OemServices -and $OemServices.Count -gt 0) {
-        Write-Host "  [!] Servicios OEM detectados: $($OemServices.DisplayName -join ', ')" -ForegroundColor Yellow
-        Write-Host "      Evitando desactivar servicios críticos de fabricante."
+        Write-Host "  [!] OEM services detected: $($OemServices.DisplayName -join ', ')" -ForegroundColor Yellow
+        Write-Host "      Skipping OEM services to avoid breaking vendor tools."
     }
 
     if (-not $OemServices -or $OemServices.Count -eq 0) {
-        if (Ask-YesNo "¿Desactivar Print Spooler si no usás impresoras?" 'n') {
+        if (Ask-YesNo "Disable Print Spooler if you do not use printers?" 'n') {
             try {
                 Stop-Service -Name "Spooler" -ErrorAction SilentlyContinue
                 Set-Service -Name "Spooler" -StartupType Disabled
-                Write-Host "  [+] Print Spooler desactivado"
+                Write-Host "  [+] Print Spooler disabled"
             } catch {
-                Write-Host "    [-] No se pudo desactivar Spooler: $_" -ForegroundColor Yellow
+                Write-Host "    [-] Could not disable Spooler: $_" -ForegroundColor Yellow
             }
         }
     } else {
-        Write-Host "  [ ] Spooler no se toca por servicios OEM presentes."
+        Write-Host "  [ ] Spooler left untouched because OEM services are present."
     }
 
-    if (Ask-YesNo "¿Bloquear inicio automático de OneDrive?" 's') {
+    if (Ask-YesNo "Block OneDrive from starting automatically?" 'y') {
         try {
             taskkill /F /IM OneDrive.exe -ErrorAction SilentlyContinue
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
             Disable-ScheduledTask -TaskPath "\\Microsoft\\OneDrive\\" -TaskName "OneDrive Standalone Update Task-S-1-5-21" -ErrorAction SilentlyContinue | Out-Null
-            Write-Host "  [+] OneDrive no se iniciará automáticamente"
+            Write-Host "  [+] OneDrive will not auto-start"
         } catch {
-            Write-Host "    [-] No se pudo bloquear el auto-start de OneDrive: $_" -ForegroundColor Yellow
+            Write-Host "    [-] Could not block OneDrive auto-start: $_" -ForegroundColor Yellow
         }
     }
 
-    if (Ask-YesNo "¿Desactivar tareas de Consumer Experience (contenido sugerido)?" 's') {
+    if (Ask-YesNo "Disable Consumer Experience tasks (suggested content)?" 'y') {
         $tasks = @(
             "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator",
             "\\Microsoft\\Windows\\Customer Experience Improvement Program\\KernelCeipTask",
@@ -87,53 +87,53 @@ function Apply-AggressiveTweaks {
         foreach ($t in $tasks) {
             try {
                 schtasks /Change /TN $t /Disable | Out-Null
-                Write-Host "  [+] Tarea $t desactivada"
+                Write-Host "  [+] Task $t disabled"
             } catch {
-                Write-Host "    [-] No se pudo desactivar $t : $_" -ForegroundColor Yellow
+                Write-Host "    [-] Could not disable $t : $_" -ForegroundColor Yellow
             }
         }
     }
 
-    if (Ask-YesNo "¿Usás Copilot? Si no, ¿querés desinstalarlo?" 'n') {
+    if (Ask-YesNo "Do you use Copilot? If not, uninstall it?" 'n') {
         $copilotPkgs = @()
         $copilotPkgs += Get-AppxPackage -AllUsers -Name "Microsoft.Copilot" -ErrorAction SilentlyContinue
         $copilotPkgs += Get-AppxPackage -AllUsers -Name "*Copilot*" -ErrorAction SilentlyContinue | Where-Object { $_.Name -like '*Copilot*' }
 
         if ($copilotPkgs.Count -eq 0) {
-            Write-Host "  [ ] Copilot no está instalado."
+            Write-Host "  [ ] Copilot is not installed."
         } else {
             foreach ($pkg in $copilotPkgs | Select-Object -Unique) {
-                Write-Host "  [+] Quitando $($pkg.Name)"
+                Write-Host "  [+] Removing $($pkg.Name)"
                 try {
                     $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue
                 } catch {
                     $FailedPackages.Value += $pkg.Name
-                    Write-Host "    [-] Error quitando $($pkg.Name): $_" -ForegroundColor Yellow
+                    Write-Host "    [-] Error removing $($pkg.Name): $_" -ForegroundColor Yellow
                 }
             }
         }
     } else {
-        Write-Host "  [ ] Copilot se mantiene instalado."
+        Write-Host "  [ ] Copilot stays installed."
     }
 
-    if (Ask-YesNo "¿Desactivar inicio automático de Microsoft Teams (personal)?" 's') {
+    if (Ask-YesNo "Disable auto-start for Microsoft Teams (personal)?" 'y') {
         try {
             taskkill /F /IM Teams.exe -ErrorAction SilentlyContinue
         } catch { }
 
         try {
             Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "com.squirrel.Teams.Teams" -ErrorAction SilentlyContinue
-            Write-Host "  [+] Inicio automático de Teams (personal) desactivado"
+            Write-Host "  [+] Auto-start for Teams (personal) disabled"
         } catch {
-            Write-Host "    [-] No se pudo desactivar el auto-start de Teams: $_" -ForegroundColor Yellow
+            Write-Host "    [-] Could not disable Teams auto-start: $_" -ForegroundColor Yellow
         }
     }
 
     Clear-DeepTempAndThumbs
 
     Write-Host ""
-    if (Ask-YesNo "¿Quitar OneDrive de este sistema?" 'n') {
-        Write-Host "  [+] Intentando desinstalar OneDrive"
+    if (Ask-YesNo "Remove OneDrive from this system?" 'n') {
+        Write-Host "  [+] Attempting to uninstall OneDrive"
         try {
             taskkill /F /IM OneDrive.exe -ErrorAction SilentlyContinue
             $pathSys = "$env:SystemRoot\System32\OneDriveSetup.exe"
@@ -144,10 +144,10 @@ function Apply-AggressiveTweaks {
                 & $pathSys /uninstall
             }
         } catch {
-            Write-Host "    [-] Error quitando OneDrive: $_" -ForegroundColor Yellow
+            Write-Host "    [-] Error removing OneDrive: $_" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  [ ] OneDrive se mantiene instalado."
+        Write-Host "  [ ] OneDrive stays installed."
     }
 }
 

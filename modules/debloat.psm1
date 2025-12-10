@@ -1,15 +1,15 @@
 function Create-RestorePointSafe {
-    Write-Section "Creando punto de restauración"
+    Write-Section "Creating restore point"
     try {
-        Checkpoint-Computer -Description "NahueOptimizer v0.1" -RestorePointType "MODIFY_SETTINGS"
-        Write-Host "  [+] Punto de restauración creado."
+        Checkpoint-Computer -Description "Scynesthesia Optimizer v0.1" -RestorePointType "MODIFY_SETTINGS"
+        Write-Host "  [+] Restore point created."
     } catch {
-        Write-Host "  [!] No se pudo crear (protección sistema desactivada?)" -ForegroundColor Yellow
+        Write-Host "  [!] Unable to create restore point (is system protection disabled?)" -ForegroundColor Yellow
     }
 }
 
 function Clear-TempFiles {
-    Write-Section "Borrando archivos temporales básicos"
+    Write-Section "Clearing basic temporary files"
     $paths = @(
         "$env:TEMP",
         "$env:WINDIR\Temp"
@@ -17,43 +17,43 @@ function Clear-TempFiles {
 
     foreach ($p in $paths) {
         if (Test-Path $p) {
-            Write-Host "  [+] Limpiando $p"
+            Write-Host "  [+] Cleaning $p"
             try {
                 Get-ChildItem $p -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
             } catch {
-                Write-Host "    [-] Error limpiando $p : $_" -ForegroundColor Yellow
+                Write-Host "    [-] Error cleaning $p : $_" -ForegroundColor Yellow
             }
         }
     }
 
     $wu = "$env:WINDIR\SoftwareDistribution\Download"
     if (Test-Path $wu) {
-        Write-Host "  [+] Limpiando cache de Windows Update"
+        Write-Host "  [+] Cleaning Windows Update cache"
         try {
             Get-ChildItem $wu -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
         } catch {
-            Write-Host "    [-] Error limpiando SoftwareDistribution : $_" -ForegroundColor Yellow
+            Write-Host "    [-] Error cleaning SoftwareDistribution : $_" -ForegroundColor Yellow
         }
     }
 }
 
 function Clear-DeepTempAndThumbs {
-    Write-Section "Limpieza extra (temp + miniaturas)"
+    Write-Section "Extra cleanup (temp + thumbnails)"
     Clear-TempFiles
 
     $thumbDir = "$env:LOCALAPPDATA\Microsoft\Windows\Explorer"
     if (Test-Path $thumbDir) {
-        Write-Host "  [+] Borrando caché de miniaturas"
+        Write-Host "  [+] Removing thumbnail cache"
         try {
             Get-ChildItem $thumbDir -Filter "thumbcache_*" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
         } catch {
-            Write-Host "    [-] No se pudo limpiar miniaturas: $_" -ForegroundColor Yellow
+            Write-Host "    [-] Could not clear thumbnails: $_" -ForegroundColor Yellow
         }
     }
 }
 
 function Apply-DebloatSafe {
-    Write-Section "Debloat seguro (apps basura típicas, no toca Store ni cosas críticas)"
+    Write-Section "Safe debloat (removes common bloatware, keeps Store and essentials)"
 
     $apps = @(
         "Microsoft.BingNews",
@@ -75,15 +75,15 @@ function Apply-DebloatSafe {
     foreach ($a in $apps) {
         $pkg = Get-AppxPackage -AllUsers -Name $a -ErrorAction SilentlyContinue
         if ($pkg) {
-            Write-Host "  [+] Quitando $a"
+            Write-Host "  [+] Removing $a"
             try {
                 Get-AppxPackage -AllUsers -Name $a | Remove-AppxPackage -ErrorAction SilentlyContinue
             } catch {
                 $failed += $a
-                Write-Host "    [-] Error quitando $a : $_" -ForegroundColor Yellow
+                Write-Host "    [-] Error removing $a : $_" -ForegroundColor Yellow
             }
         } else {
-            Write-Host "  [ ] $a no está instalado."
+            Write-Host "  [ ] $a is not installed."
         }
     }
 
