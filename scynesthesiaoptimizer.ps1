@@ -9,6 +9,17 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     exit 1
 }
 
+# Optional logging
+$TranscriptStarted = $false
+if (Ask-YesNo "Enable session logging to a file? This may capture sensitive information. [y/N]" 'n') {
+    $logDir = Join-Path $env:TEMP "ScynesthesiaOptimizer"
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+    $logFile = Join-Path $logDir "Scynesthesia_Log_$timestamp.txt"
+    Start-Transcript -Path $logFile -Append
+    $TranscriptStarted = $true
+}
+
 # ---------- 2. MODULE IMPORTS ----------
 # Load functions from the files in the /modules folder.
 $ScriptPath = $PSScriptRoot
@@ -191,3 +202,11 @@ do {
         Read-Host "Press Enter to return to the menu"
     }
 } while ($choice -ne '0')
+
+try {
+    if ($TranscriptStarted) {
+        Stop-Transcript | Out-Null
+    }
+} catch {
+    # Ignore errors if transcript was not started
+}
