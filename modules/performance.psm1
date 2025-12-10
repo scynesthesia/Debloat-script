@@ -39,28 +39,28 @@ function Handle-SysMainPrompt {
     )
 
     Write-Section "SysMain (Superfetch)"
-    $hint = if ($HardwareProfile.HasHDD -and -not $HardwareProfile.HasSSD) { 'HDD detectado: SysMain puede acelerar lanzamientos.' } else { 'SSD detectado: podés desactivarlo para evitar IO extra.' }
+    $hint = if ($HardwareProfile.HasHDD -and -not $HardwareProfile.HasSSD) { 'HDD detected: SysMain can speed up launches.' } else { 'SSD detected: you can disable it to avoid extra IO.' }
     Write-Host $hint -ForegroundColor Gray
 
-    $defaultChoice = if ($HardwareProfile.HasSSD -and -not $HardwareProfile.HasHDD) { 's' } else { 'n' }
-    if (Ask-YesNo "¿Querés desactivar SysMain para priorizar recursos?" $defaultChoice) {
+    $defaultChoice = if ($HardwareProfile.HasSSD -and -not $HardwareProfile.HasHDD) { 'y' } else { 'n' }
+    if (Ask-YesNo "Disable SysMain to prioritize resources?" $defaultChoice) {
         try {
             Stop-Service -Name "SysMain" -ErrorAction SilentlyContinue
             Set-Service -Name "SysMain" -StartupType Disabled
-            Write-Host "  [+] SysMain desactivado"
+            Write-Host "  [+] SysMain disabled"
         } catch {
-            Write-Host "  [-] No se pudo ajustar SysMain: $_" -ForegroundColor Yellow
+            Write-Host "  [-] Could not adjust SysMain: $_" -ForegroundColor Yellow
         }
-    } elseif (Ask-YesNo "¿Asegurar SysMain activo y en Automático?" 's') {
+    } elseif (Ask-YesNo "Ensure SysMain is enabled and Automatic?" 'y') {
         try {
             Set-Service -Name "SysMain" -StartupType Automatic
             Start-Service -Name "SysMain" -ErrorAction SilentlyContinue
-            Write-Host "  [+] SysMain habilitado"
+            Write-Host "  [+] SysMain enabled"
         } catch {
-            Write-Host "  [-] No se pudo habilitar SysMain: $_" -ForegroundColor Yellow
+            Write-Host "  [-] Could not enable SysMain: $_" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  [ ] SysMain sin cambios."
+        Write-Host "  [ ] SysMain left unchanged."
     }
 }
 
@@ -70,7 +70,7 @@ function Apply-PerformanceBaseline {
         $HardwareProfile
     )
 
-    Write-Section "Ajustes base de rendimiento"
+    Write-Section "Baseline performance adjustments"
 
     $prefetchPath = "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters"
     $prefetchValue = if ($HardwareProfile.HasSSD -and -not $HardwareProfile.HasHDD) { 1 } else { 3 }
@@ -79,16 +79,16 @@ function Apply-PerformanceBaseline {
 
     if ($HardwareProfile.MemoryCategory -eq 'Low') {
         Set-RegistryValueSafe "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" "VisualFXSetting" 2
-        Write-Host "  [+] Animaciones/efectos ajustados a mejor rendimiento (RAM <6GB)."
+        Write-Host "  [+] Animations/effects tuned for performance (RAM <6GB)."
     } else {
-        Write-Host "  [ ] Animaciones se mantienen (RAM >=6GB)."
+        Write-Host "  [ ] Animations left as-is (RAM >=6GB)."
     }
 
     Enable-UltimatePerformancePlan
 }
 
 function Enable-UltimatePerformancePlan {
-    Write-Section "Activando Ultimate Performance power plan"
+    Write-Section "Enabling Ultimate Performance power plan"
     try {
         $guid = "e9a42b02-d5df-448d-aa00-03f14749eb61"
         powercfg -duplicatescheme $guid | Out-Null
@@ -96,9 +96,9 @@ function Enable-UltimatePerformancePlan {
 
     try {
         powercfg -setactive $guid
-        Write-Host "  [+] Ultimate Performance activo."
+        Write-Host "  [+] Ultimate Performance active."
     } catch {
-        Write-Host "  [!] No se pudo activar Ultimate Performance: $_" -ForegroundColor Yellow
+        Write-Host "  [!] Could not activate Ultimate Performance: $_" -ForegroundColor Yellow
     }
 }
 

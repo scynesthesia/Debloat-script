@@ -1,13 +1,13 @@
 function Optimize-NetworkLatency {
-    Write-Section "Optimización de Latencia (Ping/Jitter)"
-    Write-Host "Recomendado para juegos online competitivos (Valorant, CS2, CoD)." -ForegroundColor Gray
-    
-    if (Ask-YesNo "¿Desactivar Network Throttling y optimizar respuesta de red?" 's') {
+    Write-Section "Latency Optimization (Ping/Jitter)"
+    Write-Host "Recommended for competitive online games (Valorant, CS2, CoD)." -ForegroundColor Gray
+
+    if (Ask-YesNo "Disable Network Throttling and optimize network responsiveness?" 'y') {
         # Network Throttling + SystemResponsiveness
         Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "NetworkThrottlingIndex" 0xffffffff
         Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" "SystemResponsiveness" 0
 
-        # Nagle / TCP a nivel interfaz
+        # Nagle / TCP at the interface level
         $tcpParams  = "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces"
         $interfaces = Get-ChildItem $tcpParams -ErrorAction SilentlyContinue
         foreach ($iface in $interfaces) {
@@ -15,16 +15,16 @@ function Optimize-NetworkLatency {
             Set-RegistryValueSafe $iface.PSPath "TCPNoDelay" 1
         }
 
-        Write-Host "  [+] Red optimizada para latencia ultra-baja." -ForegroundColor Green
+        Write-Host "  [+] Network optimized for ultra-low latency." -ForegroundColor Green
     } else {
-        Write-Host "  [ ] Tweaks de red omitidos." -ForegroundColor DarkGray
+        Write-Host "  [ ] Network tweaks skipped." -ForegroundColor DarkGray
     }
 }
 
 function Optimize-GamingScheduler {
-    Write-Section "Prioridad de Procesos (Gaming)"
+    Write-Section "Process Priority (Gaming)"
 
-    if (Ask-YesNo "¿Priorizar GPU/CPU para juegos en primer plano?" 's') {
+    if (Ask-YesNo "Prioritize GPU/CPU for foreground games?" 'y') {
         $gamesPath = "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games"
 
         Set-RegistryValueSafe $gamesPath "GPU Priority" 8
@@ -32,10 +32,10 @@ function Optimize-GamingScheduler {
         Set-RegistryValueSafe $gamesPath "Scheduling Category" "High" ([Microsoft.Win32.RegistryValueKind]::String)
         Set-RegistryValueSafe $gamesPath "SFIO Priority" "High" ([Microsoft.Win32.RegistryValueKind]::String)
 
-        # Ya dejamos SystemResponsiveness en 0 en Optimize-NetworkLatency
-        Write-Host "  [+] Programador optimizado para juegos." -ForegroundColor Green
+        # SystemResponsiveness already set to 0 in Optimize-NetworkLatency
+        Write-Host "  [+] Scheduler optimized for games." -ForegroundColor Green
     } else {
-        Write-Host "  [ ] Programador sin cambios." -ForegroundColor DarkGray
+        Write-Host "  [ ] Scheduler left unchanged." -ForegroundColor DarkGray
     }
 }
 
@@ -44,15 +44,15 @@ function Apply-CustomGamingPowerSettings {
 
     $isLaptop = Get-CimInstance -ClassName Win32_Battery -ErrorAction SilentlyContinue
     if ($isLaptop) {
-        Write-Host "  [!] Portátil detectada: estos ajustes suben consumo y temperatura." -ForegroundColor Yellow
-        Write-Host "      Recomendado usarlos sólo con el cargador conectado (CA)." -ForegroundColor Yellow
+        Write-Host "  [!] Laptop detected: these settings increase power draw and temperatures." -ForegroundColor Yellow
+        Write-Host "      Recommended only while plugged into AC power." -ForegroundColor Yellow
     }
 
-    Write-Host "Aplicando ajustes sobre el plan ACTUAL (SCHEME_CURRENT)." -ForegroundColor DarkGray
+    Write-Host "Applying adjustments to the CURRENT plan (SCHEME_CURRENT)." -ForegroundColor DarkGray
 
-    if (Ask-YesNo "¿Aplicar tweaks de energía hardcore para priorizar FPS?" 'n') {
+    if (Ask-YesNo "Apply hardcore power tweaks to prioritize FPS?" 'n') {
         try {
-            # 1) Discos / NVMe
+            # 1) Disks / NVMe
             powercfg /setacvalueindex SCHEME_CURRENT SUB_DISK DISKIDLE 0
             powercfg /setacvalueindex SCHEME_CURRENT SUB_DISK 0b2d69d7-a2a1-449c-9680-f91c70521c60 0
 
@@ -73,12 +73,12 @@ function Apply-CustomGamingPowerSettings {
 
             powercfg /setactive SCHEME_CURRENT
 
-            Write-Host "  [+] Ajustes de energía para gaming aplicados." -ForegroundColor Green
+            Write-Host "  [+] Power settings for gaming applied." -ForegroundColor Green
         } catch {
-            Write-Host "  [-] Error aplicando ajustes de energía: $_" -ForegroundColor Yellow
+            Write-Host "  [-] Error applying power settings: $_" -ForegroundColor Yellow
         }
     } else {
-        Write-Host "  [ ] Ajustes de energía hardcore omitidos." -ForegroundColor DarkGray
+        Write-Host "  [ ] Hardcore power tweaks skipped." -ForegroundColor DarkGray
     }
 }
 

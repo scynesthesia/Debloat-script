@@ -1,5 +1,5 @@
 function Apply-PrivacyTelemetrySafe {
-    Write-Section "Aplicando tweaks de privacidad / telemetría (preset SOC seguro)"
+    Write-Section "Applying privacy/telemetry tweaks (Safe preset)"
 
     Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent" "DisableConsumerFeatures" 1
     Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection" "AllowTelemetry" 0
@@ -16,40 +16,40 @@ function Apply-PrivacyTelemetrySafe {
     Set-RegistryValueSafe "HKCU\System\GameConfigStore" "GameDVR_Enabled" 0
     Set-RegistryValueSafe "HKCU\System\GameConfigStore" "GameDVR_FSEBehaviorMode" 2
 
-    if (Ask-YesNo "¿Desactivar Cortana y búsquedas online en Start?" 's') {
+    if (Ask-YesNo "Disable Cortana and online searches in Start?" 'y') {
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "BingSearchEnabled" 0
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search" "CortanaConsent" 0
-        Write-Host "  [+] Cortana y Bing en Start desactivados"
+        Write-Host "  [+] Cortana and Bing in Start disabled"
     } else {
-        Write-Host "  [ ] Cortana/Bing se mantienen como están."
+        Write-Host "  [ ] Cortana/Bing remain unchanged."
     }
 
-    if (Ask-YesNo "¿Activar Storage Sense para limpieza automática básica?" 'n') {
+    if (Ask-YesNo "Enable Storage Sense for basic automatic cleanup?" 'n') {
         $storageSense = "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\StorageSense"
         Set-RegistryValueSafe $storageSense "AllowStorageSenseGlobal" 1
         Set-RegistryValueSafe "$storageSense\Parameters\StoragePolicy" "01" 1
         Set-RegistryValueSafe "$storageSense\Parameters\StoragePolicy" "04" 1
-        Write-Host "  [+] Storage Sense habilitado"
+        Write-Host "  [+] Storage Sense enabled"
     } else {
-        Write-Host "  [ ] Storage Sense sin cambios."
+        Write-Host "  [ ] Storage Sense left as-is."
     }
 
-    if (Ask-YesNo "¿Ocultar recomendaciones y contenido sugerido?" 's') {
+    if (Ask-YesNo "Hide recommendations and suggested content?" 'y') {
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SystemPaneSuggestionsEnabled" 0
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338387Enabled" 0
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338388Enabled" 0
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-338389Enabled" 0
         Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" "SubscribedContent-353694Enabled" 0
-        Write-Host "  [+] Recomendaciones desactivadas"
+        Write-Host "  [+] Recommendations disabled"
     } else {
-        Write-Host "  [ ] Recomendaciones se mantienen."
+        Write-Host "  [ ] Recommendations left as-is."
     }
 
     Set-RegistryValueSafe "HKLM\SOFTWARE\Microsoft\PowerShellCore\Telemetry" "EnableTelemetry" 0
 }
 
 function Apply-PreferencesSafe {
-    Write-Section "Ajustando preferencias de UX (Start, Explorer, etc.)"
+    Write-Section "Adjusting UX preferences (Start, Explorer, etc.)"
 
     Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "Hidden" 1
     Set-RegistryValueSafe "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced" "HideFileExt" 0
