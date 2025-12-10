@@ -53,7 +53,7 @@ function Clear-DeepTempAndThumbs {
 }
 
 function Apply-DebloatSafe {
-    Write-Section "Safe debloat (common bloat apps, leaves Store and critical items)"
+    Write-Section "Safe debloat (removes common bloatware, keeps Store and essentials)"
 
     $apps = @(
         "Microsoft.BingNews",

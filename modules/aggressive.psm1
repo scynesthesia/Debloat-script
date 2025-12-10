@@ -11,7 +11,7 @@ function Apply-AggressiveTweaks {
 
     if ($HardwareProfile.IsLaptop) {
         Write-Host "  [ ] Laptop detected: hibernation kept to avoid breaking sleep." -ForegroundColor Yellow
-    } elseif (Ask-YesNo "Disable hibernation to free space and improve boot?" 'y') {
+    } elseif (Ask-YesNo "Disable hibernation to free disk space and speed up boot?" 'y') {
         Write-Host "  [+] Disabling hibernation"
         try {
             powercfg -h off
@@ -25,7 +25,7 @@ function Apply-AggressiveTweaks {
     Write-Host "  [+] Blocking background apps"
     Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" "LetAppsRunInBackground" 2
 
-    Write-Host "  [+] Extra debloat for slower PCs"
+    Write-Host "  [+] Additional debloat for slow PCs"
     $extra = @(
         "Microsoft.People",
         "Microsoft.SkypeApp",
