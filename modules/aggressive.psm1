@@ -1,3 +1,33 @@
+$script:AppRemovalConfig = $null
+
+function Get-AppRemovalListFromConfig {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Key
+    )
+
+    if (-not $script:AppRemovalConfig) {
+        $configPath = Join-Path (Split-Path $PSScriptRoot -Parent) "config/apps.json"
+        if (-not (Test-Path $configPath)) {
+            throw "App removal configuration not found at $configPath"
+        }
+
+        try {
+            $script:AppRemovalConfig = Get-Content $configPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+            throw "Failed to load app removal configuration from $configPath: $_"
+        }
+    }
+
+    $list = $script:AppRemovalConfig.$Key
+    if (-not $list) {
+        return @()
+    }
+
+    return [string[]]$list
+}
+
 function Apply-AggressiveTweaks {
     param(
         [Parameter(Mandatory)]
@@ -26,14 +56,7 @@ function Apply-AggressiveTweaks {
     Set-RegistryValueSafe "HKLM\SOFTWARE\Policies\Microsoft\Windows\AppPrivacy" "LetAppsRunInBackground" 2
 
     Write-Host "  [+] Additional debloat for slow PCs"
-    $extra = @(
-        "Microsoft.People",
-        "Microsoft.SkypeApp",
-        "Microsoft.ZuneMusic",
-        "Microsoft.ZuneVideo",
-        "Microsoft.MicrosoftOfficeHub",
-        "Microsoft.OneConnect"
-    )
+    $extra = Get-AppRemovalListFromConfig -Key "AggressiveTweaksRemove"
     foreach ($a in $extra) {
         $pkg = Get-AppxPackage -AllUsers -Name $a -ErrorAction SilentlyContinue
         if ($pkg) {

@@ -1,3 +1,33 @@
+$script:AppRemovalConfig = $null
+
+function Get-AppRemovalList {
+    param(
+        [Parameter(Mandatory)]
+        [ValidateNotNullOrEmpty()]
+        [string] $Key
+    )
+
+    if (-not $script:AppRemovalConfig) {
+        $configPath = Join-Path (Split-Path $PSScriptRoot -Parent) "config/apps.json"
+        if (-not (Test-Path $configPath)) {
+            throw "App removal configuration not found at $configPath"
+        }
+
+        try {
+            $script:AppRemovalConfig = Get-Content $configPath -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+            throw "Failed to load app removal configuration from $configPath: $_"
+        }
+    }
+
+    $list = $script:AppRemovalConfig.$Key
+    if (-not $list) {
+        return @()
+    }
+
+    return [string[]]$list
+}
+
 function Create-RestorePointSafe {
     Write-Section "Creating restore point"
     try {
@@ -54,22 +84,12 @@ function Clear-DeepTempAndThumbs {
 
 function Apply-DebloatSafe {
     param(
-        [string[]] $AppList = @(
-            "Microsoft.BingNews",
-            "Microsoft.BingWeather",
-            "Microsoft.GetHelp",
-            "Microsoft.Getstarted",
-            "Microsoft.Microsoft3DViewer",
-            "Microsoft.MicrosoftSolitaireCollection",
-            "Microsoft.MixedReality.Portal",
-            "Microsoft.Xbox.TCUI",
-            "Microsoft.XboxApp",
-            "Microsoft.XboxGameOverlay",
-            "Microsoft.XboxGamingOverlay",
-            "Microsoft.XboxIdentityProvider",
-            "Microsoft.XboxSpeechToTextOverlay"
-        )
+        [string[]] $AppList
     )
+
+    if (-not $PSBoundParameters.ContainsKey('AppList') -or -not $AppList) {
+        $AppList = Get-AppRemovalList -Key "SafeRemove"
+    }
 
     Write-Section "Safe debloat (removes common bloatware, keeps Store and essentials)"
 
@@ -96,22 +116,12 @@ function Apply-DebloatSafe {
 
 function Apply-DebloatAggressive {
     param(
-        [string[]] $AppList = @(
-            "Microsoft.BingNews",
-            "Microsoft.BingWeather",
-            "Microsoft.GetHelp",
-            "Microsoft.Getstarted",
-            "Microsoft.Microsoft3DViewer",
-            "Microsoft.MicrosoftSolitaireCollection",
-            "Microsoft.MixedReality.Portal",
-            "Microsoft.Xbox.TCUI",
-            "Microsoft.XboxApp",
-            "Microsoft.XboxGameOverlay",
-            "Microsoft.XboxGamingOverlay",
-            "Microsoft.XboxIdentityProvider",
-            "Microsoft.XboxSpeechToTextOverlay"
-        )
+        [string[]] $AppList
     )
+
+    if (-not $PSBoundParameters.ContainsKey('AppList') -or -not $AppList) {
+        $AppList = Get-AppRemovalList -Key "AggressiveRemove"
+    }
 
     Write-Section "Aggressive debloat (includes optional removal of provisioned packages)"
 
