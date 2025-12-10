@@ -19,6 +19,7 @@ try {
     Import-Module "$ScriptPath\modules\debloat.psm1" -Force -ErrorAction Stop
     Import-Module "$ScriptPath\modules\performance.psm1" -Force -ErrorAction Stop
     Import-Module "$ScriptPath\modules\aggressive.psm1" -Force -ErrorAction Stop
+    Import-Module "$ScriptPath\modules\repair.psm1" -Force -ErrorAction Stop
     Write-Host "Módulos cargados correctamente." -ForegroundColor Green
 } catch {
     Write-Host "Error cargando módulos: $_" -ForegroundColor Red
@@ -149,13 +150,20 @@ do {
     Show-Banner
     Write-Host "1) Aplicar Preset SOC / Main (Seguro)"
     Write-Host "2) Aplicar Preset PC Lenta / Agresivo"
+    Write-Host "3) Herramientas de Reparación"
     Write-Host "0) Salir"
     Write-Host ""
-    $choice = Read-MenuChoice "Elegí una opción" @('1','2','0')
+    $choice = Read-MenuChoice "Elegí una opción" @('1','2','3','0')
 
     switch ($choice) {
         '1' { Run-SOCPreset }
         '2' { Run-PCSlowPreset }
+        '3' {
+            Write-Section "Herramientas de Reparación"
+            Invoke-NetworkSoftReset
+            Invoke-SystemRepair
+            Read-Host "Presioná Enter para volver al menú"
+        }
         '0' { break }
     }
 
