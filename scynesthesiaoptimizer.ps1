@@ -191,6 +191,8 @@ do {
             Optimize-NetworkLatency
             Optimize-GamingScheduler
             Apply-CustomGamingPowerSettings
+            Optimize-ProcessorScheduling 
+            Enable-MsiModeSafe
             Write-Host "[+] Gaming tweaks applied." -ForegroundColor Magenta
         }
         '4' {
